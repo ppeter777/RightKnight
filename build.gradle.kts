@@ -33,9 +33,22 @@ dependencies {
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // Работа с базой данных через JPA (Hibernate)
+    implementation ("org.springframework.boot:spring-boot-starter-data-jpa")
+
+    // Драйвер для подключения к PostgreSQL
+    runtimeOnly ("org.postgresql:postgresql")
+
+    // Библиотека Flyway для управления миграциями базы данных
+    implementation ("org.flywaydb:flyway-core")
+    implementation ("org.flywaydb:flyway-database-postgresql")
 }
 
 jte {
+    // Указываем путь к исходникам шаблонов для горячей перезагрузки
+    sourceDirectory = project.file("src/main/jte").toPath()
+
 	generate()
 	binaryStaticContent = true
 }
