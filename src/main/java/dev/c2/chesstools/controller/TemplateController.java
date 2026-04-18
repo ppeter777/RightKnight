@@ -20,28 +20,28 @@ public class TemplateController {
             @RequestParam(required = false) String player,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate until,
+            @RequestParam(required = false, defaultValue = "all") String mode,
+            @RequestParam(required = false) Boolean rated,
             Model model) {
 
-        // Если параметров нет (первый заход), просто показываем форму
         if (player == null || from == null || until == null) {
-            model.addAttribute("player", "zx316"); // дефолтный ник
+            model.addAttribute("player", "zx316");
             return "pages/performance";
         }
 
-        // Если параметры есть — считаем
         var zFrom = from.atStartOfDay(java.time.ZoneId.systemDefault());
         var zUntil = until.atTime(23, 59, 59).atZone(java.time.ZoneId.systemDefault());
 
-        var result = Performance.performanceCalc(player, zFrom, zUntil);
+        // Передаем mode и rated в расчет
+        var result = Performance.performanceCalc(player, zFrom, zUntil, mode, rated);
 
+        // Добавляем их в модель, чтобы форма "помнила" выбор
         model.addAttribute("player", player);
-        model.addAttribute("performanceBoth", result.get("performanceBoth"));
-        model.addAttribute("performanceWhite", result.get("performanceWhite"));
-        model.addAttribute("performanceBlack", result.get("performanceBlack"));
-        model.addAttribute("gamesPlayed", result.get("gamesPlayed"));
-        model.addAttribute("gamesWhite", result.get("gamesWhite"));
-        model.addAttribute("gamesBlack", result.get("gamesBlack"));
-
+        model.addAttribute("mode", mode);
+        model.addAttribute("rated", rated);
+        model.addAttribute("from", from);
+        model.addAttribute("until", until);
+        model.addAllAttributes(result);
 
         return "pages/performance";
     }

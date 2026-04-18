@@ -9,11 +9,25 @@ import java.util.*;
 
 public class Performance {
 
-    public static Map<String, Integer> performanceCalc(String player, ZonedDateTime from, ZonedDateTime until) {
+    public static Map<String, Integer> performanceCalc(
+            String player,
+            ZonedDateTime from,
+            ZonedDateTime until,
+            String mode,    // "blitz", "rapid", "bullet" и т.д.
+            Boolean rated   // true для рейтинговых, null для всех
+    ) {
         var client = Client.basic();
-        // Используем параметры вместо хардкода
-        List<GameInfo> games = client.games().byUserId(player, p -> p.since(from).until(until))
-                .stream()
+
+        var games = client.games().byUserId(player, params -> {
+                    params.since(from).until(until);
+                    if (mode != null && !mode.equals("all")) {
+                        // Превращаем строку в нужный Enum или тип для chariot
+                        params.perfType(chariot.model.Enums.PerfType.valueOf(mode));
+                    }
+                    if (rated != null) {
+                        params.rated(rated);
+                    }
+                }).stream()
                 .map(game -> parseGame(game, player))
                 .toList();
 
@@ -58,9 +72,21 @@ public class Performance {
     }
 
     private static int calcPerf(List<GameInfo> games) {
-        if (games.isEmpty()) return 0;
-        List<Float> ratings = games.stream().map(g -> (float) g.oppRating).toList();
-        float totalScore = (float) games.stream().mapToDouble(g -> g.score).sum();
+        // Отфильтровываем игры, где рейтинг соперника не указан (0)
+        List<GameInfo> validGames = games.stream()
+                .filter(g -> g.oppRating() > 0)
+                .toList();
+
+        if (validGames.isEmpty()) return 0;
+
+        List<Float> ratings = validGames.stream()
+                .map(g -> (float) g.oppRating())
+                .toList();
+
+        float totalScore = (float) validGames.stream()
+                .mapToDouble(g -> g.score())
+                .sum();
+
         return performanceRating(ratings, totalScore);
     }
 

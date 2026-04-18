@@ -8197,3 +8197,26 @@ h1, h2, h3, h4, h5,
       -webkit-box-shadow: 0px 5px 13px 0px rgba(0, 0, 0, 0.14) !important;
       -moz-box-shadow: 0px 5px 13px 0px rgba(0, 0, 0, 0.14) !important;
       box-shadow: 0px 5px 13px 0px rgba(0, 0, 0, 0.14) !important; }
+
+/* --- My Custom Styles --- */
+.loading { pointer-events: none; opacity: 0.7; }
+
+.custom-spinner {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s linear infinite;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.gj-datepicker.gj-datepicker-bootstrap.gj-unselectable {
+    margin-bottom: 0 !important;
+}
