@@ -3,13 +3,21 @@ package dev.rightknight.calc;
 import chariot.Client;
 import chariot.model.Game;
 import chariot.model.Player;
+import dev.rightknight.model.GameEntity;
+import dev.rightknight.repository.GameRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.util.*;
 
+@Service
 public class Performance {
 
-    public static Map<String, Integer> performanceCalc(
+    @Autowired
+    private GameRepository gameRepository;
+
+    public Map<String, Integer> performanceCalc(
             String player,
             ZonedDateTime from,
             ZonedDateTime until,
@@ -28,8 +36,27 @@ public class Performance {
                         params.rated(rated);
                     }
                 }).stream()
-                .map(game -> parseGame(game, player))
+                .map(game -> {
+                    parseGame(game, player);
+                    var info = parseGame(game, player);
+                    if (!gameRepository.existsById(game.id())) {
+                        var entity = new GameEntity();
+                        entity.setId(game.id());
+                        entity.setUserId(player);
+                        entity.setWhite(info.isWhite()); // Вот тут проверь имя метода (setWhite)
+                        entity.setScore(info.score());
+                        entity.setOpponentRating(info.oppRating());
+                        entity.setCreatedAt(game.createdAt());
+                        entity.setMode(game.speed()); // Не забудь про mode!
+                        entity.setRated(game.rated());       // И про rated!
+// Убедись, что opponentId тоже заполнен
+                        entity.setOpponentId(info.isWhite() ? game.players().black().name() : game.players().white().name());
+                        gameRepository.save(entity);
+                    }
+                    return info;
+                })
                 .toList();
+
 
         var whiteGames = games.stream().filter(g -> g.isWhite).toList();
         var blackGames = games.stream().filter(g -> !g.isWhite).toList();
@@ -50,7 +77,7 @@ public class Performance {
         return res;
     }
 
-    private static GameInfo parseGame(Game game, String userId) {
+    private GameInfo parseGame(Game game, String userId) {
         var white = game.players().white();
         var black = game.players().black();
 
@@ -71,7 +98,7 @@ public class Performance {
         return new GameInfo(isWhite, oppRating, score);
     }
 
-    private static int calcPerf(List<GameInfo> games) {
+    private int calcPerf(List<GameInfo> games) {
         // Отфильтровываем игры, где рейтинг соперника не указан (0)
         List<GameInfo> validGames = games.stream()
                 .filter(g -> g.oppRating() > 0)
@@ -90,7 +117,7 @@ public class Performance {
         return performanceRating(ratings, totalScore);
     }
 
-    public static int performanceRating(List<Float> opponentRatings, float score) {
+    public int performanceRating(List<Float> opponentRatings, float score) {
         float lo = 0, hi = 4000;
         for (int i = 0; i < 20; i++) { // 20 итераций достаточно для точности
             float mid = (lo + hi) / 2;

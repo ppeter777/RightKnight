@@ -1,6 +1,7 @@
 package dev.rightknight.controller;
 
 import dev.rightknight.calc.Performance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,6 +10,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 public class TemplateController {
+
+    @Autowired
+    Performance performance;
 
     @GetMapping("/")
     public String home(Model model) {
@@ -33,7 +37,7 @@ public class TemplateController {
         var zUntil = until.atTime(23, 59, 59).atZone(java.time.ZoneId.systemDefault());
 
         // Передаем mode и rated в расчет
-        var result = Performance.performanceCalc(player, zFrom, zUntil, mode, rated);
+        var result = performance.performanceCalc(player, zFrom, zUntil, mode, rated);
 
         // Добавляем их в модель, чтобы форма "помнила" выбор
         model.addAttribute("player", player);
