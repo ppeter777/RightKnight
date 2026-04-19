@@ -9,9 +9,12 @@
     cd RightNight
     make install
 
-### Локальный запуск
+### Быстрый запуск с помощью Make:
 
-    make run-dist
+    make build — собрать проект.
+    make run — запустить приложение.
+    make clean — очистить и остановить приложение.
+    make stop — остановить приложение.
 
 в браузере перейти на http://localhost:8080/performance
 
