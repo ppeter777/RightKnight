@@ -1,4 +1,4 @@
-package dev.c2.chesstools.calc;
+package dev.rightknight.calc;
 
 import chariot.Client;
 import chariot.model.Game;

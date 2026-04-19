@@ -5,12 +5,12 @@ plugins {
 	id("gg.jte.gradle") version "3.1.16"
 }
 
-group = "dev.c2"
+group = "dev.rightknight"
 version = "0.0.1-SNAPSHOT"
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(23)
+		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
 
@@ -29,13 +29,14 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("gg.jte:jte:3.1.16")
 	implementation("gg.jte:jte-spring-boot-starter-3:3.1.16")
+    implementation ("org.springframework.boot:spring-boot-starter")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // Работа с базой данных через JPA (Hibernate)
-    implementation ("org.springframework.boot:spring-boot-starter-data-jpa")
+    //implementation ("org.springframework.boot:spring-boot-starter-data-jpa")
 
     // Драйвер для подключения к PostgreSQL
     runtimeOnly ("org.postgresql:postgresql")

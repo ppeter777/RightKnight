@@ -1,13 +1,13 @@
-package dev.c2.chesstools;
+package dev.rightknight;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ChesstoolsApplication {
+public class RightKnightApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ChesstoolsApplication.class, args);
+		SpringApplication.run(RightKnightApplication.class, args);
 	}
 
 }

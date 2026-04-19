@@ -1,10 +1,10 @@
-package dev.c2.chesstools;
+package dev.rightknight;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ChesstoolsApplicationTests {
+class RightKnightApplicationTests {
 
 	@Test
 	void contextLoads() {

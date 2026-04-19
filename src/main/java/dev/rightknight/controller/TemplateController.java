@@ -1,6 +1,6 @@
-package dev.c2.chesstools.controller;
+package dev.rightknight.controller;
 
-import dev.c2.chesstools.calc.Performance;
+import dev.rightknight.calc.Performance;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
