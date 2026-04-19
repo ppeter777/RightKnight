@@ -16,3 +16,4 @@ clean:
 # Отдельная команда для остановки, если закончили работу
 stop:
 	./gradlew --stop
+	-pkill -f 'java.*my-utility-app' || true
