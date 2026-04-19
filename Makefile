@@ -1,19 +1,18 @@
+.PHONY: build run clean stop
+
+# Обычный запуск (демон остается в памяти для скорости)
+run:
+	./gradlew bootRun
+
+# Сборка без тестов (когда нужно просто проверить, что компилируется)
 build:
-	./gradlew clean build
+	./gradlew build -x test
 
-install:
-	./gradlew installDist
+# Полная очистка, если Gradle "заглючил" или нужно освободить RAM
+clean:
+	./gradlew clean
+	./gradlew --stop
 
-run-dist:
-	./build/install/app/bin/app
-
-lint:
-	./gradlew checkstyleMain checkstyleTest
-
-test:
-	./gradlew test
-
-report:
-	./gradlew jacocoTestReport
-
-.PHONY: build
+# Отдельная команда для остановки, если закончили работу
+stop:
+	./gradlew --stop
