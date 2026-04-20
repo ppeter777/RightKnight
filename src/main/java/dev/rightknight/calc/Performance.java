@@ -7,7 +7,6 @@ import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.time.ZonedDateTime;
 import java.util.*;
 
@@ -17,64 +16,70 @@ public class Performance {
     @Autowired
     private GameRepository gameRepository;
 
-    public Map<String, Integer> performanceCalc(
-            String player,
-            ZonedDateTime from,
-            ZonedDateTime until,
-            String mode,    // "blitz", "rapid", "bullet" и т.д.
-            Boolean rated   // true для рейтинговых, null для всех
-    ) {
-        var client = Client.basic();
+    public Map<String, Integer> performanceCalc(String player, ZonedDateTime from, ZonedDateTime until, String mode, Boolean rated) {
+        // 1. Получаем все игры за период (из БД или API)
+        List<GameEntity> allGames = getGames(player, from, until);
 
-        var games = client.games().byUserId(player, params -> {
-                    params.since(from).until(until);
-                    if (mode != null && !mode.equals("all")) {
-                        // Превращаем строку в нужный Enum или тип для chariot
-                        params.perfType(chariot.model.Enums.PerfType.valueOf(mode));
-                    }
-                    if (rated != null) {
-                        params.rated(rated);
-                    }
-                }).stream()
-                .map(game -> {
-                    parseGame(game, player);
-                    var info = parseGame(game, player);
-                    if (!gameRepository.existsById(game.id())) {
-                        var entity = new GameEntity();
-                        entity.setId(game.id());
-                        entity.setUserId(player);
-                        entity.setWhite(info.isWhite()); // Вот тут проверь имя метода (setWhite)
-                        entity.setScore(info.score());
-                        entity.setOpponentRating(info.oppRating());
-                        entity.setCreatedAt(game.createdAt());
-                        entity.setMode(game.speed()); // Не забудь про mode!
-                        entity.setRated(game.rated());       // И про rated!
-// Убедись, что opponentId тоже заполнен
-                        entity.setOpponentId(info.isWhite() ? game.players().black().name() : game.players().white().name());
-                        gameRepository.save(entity);
-                    }
-                    return info;
-                })
+        // 2. Фильтруем их по выбранным в форме параметрам
+        List<GameEntity> filteredGames = allGames.stream()
+                .filter(g -> isMatch(g, mode, rated))
                 .toList();
 
-
-        var whiteGames = games.stream().filter(g -> g.isWhite).toList();
-        var blackGames = games.stream().filter(g -> !g.isWhite).toList();
-
-        Map<String, Integer> res = new LinkedHashMap<>();
-
-        res.put("performanceBoth", calcPerf(games));
-        res.put("performanceWhite", calcPerf(whiteGames));
-        res.put("performanceBlack", calcPerf(blackGames));
-
-        // В конце метода performanceCalc перед return output:
-        res.put("gamesPlayed", games.size());
-        res.put("gamesWhite", whiteGames.size());
-        res.put("gamesBlack", blackGames.size());
+        // 3. Отдаем отфильтрованный список Entity в расчет
+        return calculateResults(filteredGames);
+    }
 
 
-        res.forEach((k, v) -> System.out.println(k + ": " + v));
-        return res;
+    private List<GameEntity> getGames(String player, ZonedDateTime from, ZonedDateTime until) {
+        // 1. Ищем в БД
+        List<GameEntity> dbGames = gameRepository.findAllByUserIdAndCreatedAtBetween(player, from, until);
+
+        if (!dbGames.isEmpty()) {
+            System.out.println("Данные взяты из кэша БД");
+            return dbGames;
+        }
+
+        // 2. Если в базе пусто, качаем
+        System.out.println("Кэш пуст, запрашиваем Lichess API...");
+        List<GameEntity> apiGames = fetchGamesFromLichess(player, from, until);
+
+        // 3. Сохраняем скачанное
+        saveGames(apiGames, player);
+
+        return apiGames;
+    }
+
+    private boolean isMatch(GameEntity game, String mode, Boolean rated) {
+        // Проверяем режим игры (blitz, rapid и т.д.)
+        // mode.equals("all") позволяет пропустить фильтрацию, если выбрано "All Modes"
+        boolean modeMatches = mode.equals("all") || game.getMode().equalsIgnoreCase(mode);
+
+        // Проверяем тип игры (Rated/Casual)
+        // Если rated == null (All Games), фильтр не применяется
+        boolean ratedMatches = (rated == null) || (game.isRated() == rated);
+
+        return modeMatches && ratedMatches;
+    }
+
+    private List<GameEntity> fetchGamesFromLichess(String player, ZonedDateTime from, ZonedDateTime until) {
+        var client = Client.basic();
+        return client.games().byUserId(player, params -> params
+                        .since(from)
+                        .until(until)
+                        .pgn(true) // Чтобы скачивался текст партий
+                        .opening(true) // Чтобы были дебюты
+                ).stream()
+                .map(g -> mapToEntity(g, player))
+                .toList();
+    }
+
+    private void saveGames(List<GameEntity> apiGames, String player) {
+        if (apiGames.isEmpty()) return;
+
+        // Spring Data JPA сам поймет по ID (Primary Key),
+        // что если игра уже есть - ее надо обновить, если нет - создать.
+        gameRepository.saveAll(apiGames);
+        System.out.println("Сохранено в базу: " + apiGames.size() + " игр для игрока " + player);
     }
 
     private GameInfo parseGame(Game game, String userId) {
@@ -98,22 +103,99 @@ public class Performance {
         return new GameInfo(isWhite, oppRating, score);
     }
 
-    private int calcPerf(List<GameInfo> games) {
-        // Отфильтровываем игры, где рейтинг соперника не указан (0)
-        List<GameInfo> validGames = games.stream()
-                .filter(g -> g.oppRating() > 0)
+    private GameEntity mapToEntity(chariot.model.Game game, String userId) {
+        var entity = new GameEntity();
+        entity.setId(game.id());
+        entity.setUserId(userId);
+        entity.setCreatedAt(game.createdAt());
+        entity.setMode(game.speed());
+        entity.setRated(game.rated());
+
+        // Определяем, за какой цвет играл наш пользователь
+        boolean isWhite = game.players().white().name().equalsIgnoreCase(userId);
+        entity.setWhite(isWhite);
+
+        game.clock().map(c -> {
+            int minutes = c.initial() / 60;
+            int increment = c.increment();
+            entity.setClockLimit(minutes + "+" + increment);
+            return c;
+        });
+
+        // Достаем оппонента и его рейтинг
+        var opponent = isWhite ? game.players().black() : game.players().white();
+        entity.setOpponentId(opponent.name());
+
+        // В версии 0.1.21 используем Account для рейтинга
+        if (opponent instanceof chariot.model.Player.Account account) {
+            entity.setOpponentRating(account.rating());
+        } else {
+            entity.setOpponentRating(0);
+        }
+
+        // Считаем результат (score)
+        float score = 0.5f;
+        if (game.winner().isPresent()) {
+            boolean whiteWon = game.winner().get().name().equals("white");
+            score = (isWhite == whiteWon) ? 1.0f : 0.0f;
+        }
+        entity.setScore(score);
+
+        // Новые поля: PGN и Дебюты
+        entity.setPgn(game.pgn().orElse(""));
+
+        // opening() возвращает Optional, поэтому используем map/orElse
+        game.opening().map(o -> {
+            entity.setOpeningName(o.name());
+            entity.setOpeningEco(o.eco());
+            return o;
+        });
+
+        return entity;
+    }
+
+    private Map<String, Integer> calculateResults(List<GameEntity> games) {
+        // Разделяем игры по цветам для детального расчета
+        var whiteGames = games.stream().filter(GameEntity::isWhite).toList();
+        var blackGames = games.stream().filter(g -> !g.isWhite()).toList();
+
+        Map<String, Integer> results = new LinkedHashMap<>();
+
+        // Считаем общее
+        results.put("performanceBoth", calcSpecificPerf(games));
+        results.put("gamesPlayed", games.size());
+
+        // Считаем белыми
+        results.put("performanceWhite", calcSpecificPerf(whiteGames));
+        results.put("gamesWhite", whiteGames.size());
+
+        // Считаем черными
+        results.put("performanceBlack", calcSpecificPerf(blackGames));
+        results.put("gamesBlack", blackGames.size());
+
+        return results;
+    }
+
+    // Вспомогательный метод, чтобы не дублировать логику подготовки списков
+    private int calcSpecificPerf(List<GameEntity> games) {
+        if (games.isEmpty()) return 0;
+
+        // Оставляем только игры, где у соперника есть рейтинг
+        var validGames = games.stream()
+                .filter(g -> g.getOpponentRating() > 0)
                 .toList();
 
         if (validGames.isEmpty()) return 0;
 
         List<Float> ratings = validGames.stream()
-                .map(g -> (float) g.oppRating())
+                .map(g -> (float) g.getOpponentRating())
                 .toList();
 
         float totalScore = (float) validGames.stream()
-                .mapToDouble(g -> g.score())
+                .mapToDouble(GameEntity::getScore)
                 .sum();
 
+        // Старый добрый метод с бинарным поиском
         return performanceRating(ratings, totalScore);
     }
 
