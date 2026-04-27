@@ -1,6 +1,7 @@
 package dev.rightknight.controller;
 
 import dev.rightknight.calc.Performance;
+import dev.rightknight.repository.GameRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -13,6 +14,9 @@ public class TemplateController {
 
     @Autowired
     Performance performance;
+
+    @Autowired
+    GameRepository gameRepository;
 
     @GetMapping("/")
     public String home(Model model) {
@@ -49,4 +53,13 @@ public class TemplateController {
 
         return "pages/performance";
     }
+
+    @GetMapping("/games")
+    public String showGames(Model model) {
+        // Для начала просто берем последние 50 игр из базы
+        var games = gameRepository.findTop50ByOrderByCreatedAtDesc();
+        model.addAttribute("games", games);
+        return "pages/games";
+    }
+
 }
