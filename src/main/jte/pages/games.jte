@@ -1,10 +1,28 @@
 @param java.util.List<dev.rightknight.model.GameEntity> games
+@param String search = ""
 
 @template.layout.main(content = @`
     <div class="bg-white shadow rounded-lg p-6 mb-4">
         <h1 class="text-2xl font-bold mb-4">Game History</h1>
 
         <div class="overflow-x-auto">
+            <div class="mb-3">
+                <form action="/games" method="get" class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <input type="text" name="search" class="form-control" value="${search}" placeholder="Search opening...">
+                    </div>
+                    <div class="col-md-2">
+                        <select name="side" class="form-select">
+                            <option value="all">Any Side</option>
+                            <option value="white">As White</option>
+                            <option value="black">As Black</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Find</button>
+                    </div>
+                </form>
+            </div>
             <table class="table table-hover">
                 <thead class="table-light">
                 <tr>
@@ -42,9 +60,9 @@
                                     data-pgn="${game.getPgn()}"
                                     onclick="viewGame(
                                         this.getAttribute('data-pgn'),
-                                        '${game.isWhite() ? "You" : game.getOpponentId()}',
+                                        '${game.isWhite() ? "zx316" : game.getOpponentId()}',
                                         '${game.isWhite() ? "" : String.valueOf(game.getOpponentRating())}',
-                                        '${game.isWhite() ? game.getOpponentId() : "You"}',
+                                        '${game.isWhite() ? game.getOpponentId() : "zx316"}',
                                         '${game.isWhite() ? String.valueOf(game.getOpponentRating()) : ""}',
                                         '${game.isWhite()}'
                                     )">View</button>
@@ -106,29 +124,62 @@
         var engineStatus = false;
 
         engine.onmessage = function(event) {
-            console.log('Stockfish says: ' + event.data);
             var line = event.data;
-            if (line.indexOf('score cp') !== -1) {
-                // Извлекаем оценку в пешках (centipawns)
-                var scoreMatch = line.match(/score cp (-?\d+)/);
-                if (scoreMatch) {
-                    var score = (parseInt(scoreMatch[1]) / 100).toFixed(1);
-                    // Если сейчас ход черных, инвертируем оценку для наглядности
-                    if (chess.turn() === 'b') score = -score;
-                    $('#evaluation').text(score > 0 ? '+' + score : score);
-                }
-            } else if (line.indexOf('score mate') !== -1) {
-                var mateMatch = line.match(/score mate (-?\d+)/);
-                $('#evaluation').text('M' + Math.abs(mateMatch[1]));
+
+            // Игнорируем промежуточные данные, ловим только финальный скор на глубине
+            if (line.indexOf('depth 12') !== -1 || line.indexOf('mate') !== -1) {
+                parseScore(line);
             }
         };
 
-        function viewGame(pgn, whiteName, whiteRating, blackName, blackRating, userIsWhite) {
-            var whiteDisplay = whiteName + (whiteRating ? ' (' + whiteRating + ')' : '');
-            var blackDisplay = blackName + (blackRating ? ' (' + blackRating + ')' : '');
+        function parseScore(line) {
+            var scoreMatch = line.match(/score cp (-?\d+)/);
+            if (scoreMatch) {
+                var cp = parseInt(scoreMatch[1]);
+                // Инвертируем, если ход черных (чтобы + всегда был за белых)
+                var score = (chess.turn() === 'b' ? -cp : cp) / 100;
+                $('#evaluation').text((score > 0 ? '+' : '') + score.toFixed(1));
+                return;
+            }
 
-            $('#player-white').text(whiteDisplay);
-            $('#player-black').text(blackDisplay);
+            var mateMatch = line.match(/score mate (-?\d+)/);
+            if (mateMatch) {
+                var mate = parseInt(mateMatch[1]);
+                $('#evaluation').text('M' + Math.abs(mate));
+            }
+        }
+
+        function viewGame(pgn, whiteName, whiteRating, blackName, blackRating, userIsWhite) {
+            // Формируем красивые строки для игроков
+            var whiteInfo = whiteName + (whiteRating ? ' (' + whiteRating + ')' : '');
+            var blackInfo = blackName + (blackRating ? ' (' + blackRating + ')' : '');
+
+            $('#player-white').text(whiteInfo);
+            $('#player-black').text(blackInfo);
+            $('#evaluation').text('...');
+
+
+
+            var modalElement = document.getElementById('gameModal');
+            var bootstrapModal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            bootstrapModal.show();
+
+            modalElement.addEventListener('shown.bs.modal', function () {
+                // Определяем ориентацию ЗАРАНЕЕ
+                var targetOrientation = (userIsWhite === 'true') ? 'white' : 'black';
+
+                var config = {
+                    position: 'start',
+                    orientation: targetOrientation, // Передаем сразу сюда
+                    draggable: false,
+                    pieceTheme: '/img/chesspieces/wikipedia/{piece}.svg'
+                };
+
+                // Создаем доску уже с нужной ориентацией
+                board = Chessboard('myBoard', config);
+
+                evaluatePosition();
+            }, { once: true });
 
             chess = new Chess();
             if (!chess.load_pgn(pgn)) return;
@@ -136,18 +187,6 @@
             moveHistory = chess.history();
             chess.reset();
             currentMoveIndex = -1;
-
-            var modalElement = document.getElementById('gameModal');
-            bootstrap.Modal.getOrCreateInstance(modalElement).show();
-
-            modalElement.addEventListener('shown.bs.modal', function () {
-                board = Chessboard('myBoard', {
-                    position: 'start',
-                    orientation: userIsWhite === 'true' ? 'white' : 'black', // Авто-поворот
-                    pieceTheme: '/img/chesspieces/{piece}.svg'
-                });
-                evaluatePosition(); // Запускаем движок на старте
-            }, { once: true });
 
             // Render the moves as clickable spans
             renderMoves();
@@ -210,7 +249,9 @@
             if (chess && currentMoveIndex < moveHistory.length - 1) {
                 currentMoveIndex++;
                 chess.move(moveHistory[currentMoveIndex]);
-                board.position(chess.fen(), false); // 'false' turns off animation
+                board.position(chess.fen(), false);
+
+                $('#evaluation').text('...'); // Показываем, что думаем
                 evaluatePosition();
                 updateHighlight();
             }
@@ -228,6 +269,7 @@
 
         function startEngine() {
             engine.postMessage('uci');
+            engine.postMessage('ucinewgame'); // Clear engine hash/state
             engine.postMessage('isready');
             engineStatus = true;
         }
@@ -237,16 +279,8 @@
         function evaluatePosition() {
             if (!engineStatus) startEngine();
 
-<%--            if (evalTimer) clearTimeout(evalTimer);--%>
-<%--            evalTimer = setTimeout(function() {--%>
-<%--                engine.postMessage('stop');--%>
-<%--                engine.postMessage('position fen ' + chess.fen());--%>
-<%--                engine.postMessage('go depth 15');--%>
-<%--            }, 200);--%>
-
-            engine.postMessage('stop');
             engine.postMessage('position fen ' + chess.fen());
-            engine.postMessage('go depth 15'); // Глубина 15 оптимальна для браузера
+            engine.postMessage('go depth 12'); // Глубина 13 достаточно быстрая для мгновенного отклика
         }
 
         function moveStart() { if(chess) { chess.reset(); currentMoveIndex = -1; board.start(); } }

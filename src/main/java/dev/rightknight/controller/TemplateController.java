@@ -1,6 +1,7 @@
 package dev.rightknight.controller;
 
 import dev.rightknight.calc.Performance;
+import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -8,6 +9,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 
 @Controller
 public class TemplateController {
@@ -55,10 +58,29 @@ public class TemplateController {
     }
 
     @GetMapping("/games")
-    public String showGames(Model model) {
-        // Для начала просто берем последние 50 игр из базы
-        var games = gameRepository.findTop50ByOrderByCreatedAtDesc();
+    public String showGames(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "all") String side,
+            Model model) {
+
+        List<GameEntity> games;
+        if (search != null && !search.isEmpty()) {
+            games = gameRepository.findByOpeningNameContainingIgnoreCase(search);
+        } else {
+            games = gameRepository.findTop50ByOrderByCreatedAtDesc();
+        }
+
+        // Фильтруем по цвету
+        if (!"all".equals(side)) {
+            boolean lookForWhite = "white".equals(side);
+            games = games.stream()
+                    .filter(g -> g.isWhite() == lookForWhite)
+                    .toList();
+        }
+
         model.addAttribute("games", games);
+        model.addAttribute("search", search);
+        model.addAttribute("side", side);
         return "pages/games";
     }
 

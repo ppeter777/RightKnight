@@ -12,4 +12,5 @@ public interface GameRepository extends CrudRepository<GameEntity, String> {
     List<GameEntity> findAllByUserId(String userId);
     List<GameEntity> findAllByUserIdAndCreatedAtBetween(String userId, ZonedDateTime start, ZonedDateTime end);
     List<GameEntity> findTop50ByOrderByCreatedAtDesc();
+    List<GameEntity> findByOpeningNameContainingIgnoreCase(String search);
 }
