@@ -14,6 +14,8 @@ RUN ./gradlew dependencies --no-daemon
 # Копируем исходники и собираем
 COPY src src
 # JTE обычно требует предкомпиляции, команда bootJar это учитывает
+RUN ./gradlew generateJte bootJar --no-daemon -x test
+
 RUN ./gradlew bootJar --no-daemon -x test
 
 # Этап 2: Запуск

@@ -1,14 +1,14 @@
 version: '3.8'
 services:
   db:
-    image: postgres:16-alpine # Используем свежую 16 версию
+    image: postgres:16-alpine
     container_name: postgres_db
     restart: always
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: myapp_db
-    shm_size: 1gb # Увеличиваем разделяемую память для тяжелых запросов
+    shm_size: 1gb
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     command: >
