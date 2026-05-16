@@ -29,3 +29,5 @@ Thumbs.db
 *.log
 tmp/
 
+.env
+postgres_data/
