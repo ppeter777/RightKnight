@@ -1,0 +1,5 @@
+-- Initial schema migration for RightKnight.
+-- Currently the application does not require database tables.
+-- Future schema changes should be added as new migrations:
+-- V2__create_games_table.sql
+-- V3__add_users.sql
