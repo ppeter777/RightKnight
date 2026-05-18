@@ -17,3 +17,21 @@ clean:
 stop:
 	./gradlew --stop
 	-pkill -f 'java.*my-utility-app' || true
+
+docker-build:
+	docker compose build app
+
+docker-up:
+	docker compose up -d
+
+docker-logs:
+	docker compose logs -f app
+
+docker-ps:
+	docker compose ps
+
+deploy:
+	git pull
+	docker compose build app
+	docker compose up -d
+	docker compose ps
