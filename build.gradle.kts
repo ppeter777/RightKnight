@@ -33,11 +33,12 @@ dependencies {
     implementation ("org.springframework.boot:spring-boot-starter")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     runtimeOnly ("org.postgresql:postgresql")
     implementation ("org.flywaydb:flyway-core")
     implementation ("org.flywaydb:flyway-database-postgresql")
+	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testRuntimeOnly("com.h2database:h2")
 }
 
 jte {
