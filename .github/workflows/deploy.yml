@@ -26,4 +26,17 @@ jobs:
             docker compose up -d
 
             docker compose ps
-            curl -f http://127.0.0.1:8080/performance
+
+            for i in {1..30}; do
+              if curl -f http://127.0.0.1:8080/performance; then
+                echo "Health check passed"
+                exit 0
+              fi
+
+              echo "Waiting for app to start..."
+              sleep 2
+            done
+
+            echo "Health check failed"
+            docker compose logs --tail=100 app
+            exit 1
