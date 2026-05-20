@@ -1,3 +1,5 @@
+@param String title = "RightKnight"
+@param String activePage = ""
 @param gg.jte.Content content
 
 <!DOCTYPE html>
@@ -5,72 +7,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RightKnight</title>
+    <title>${title}</title>
 
-    <!-- 1. Стили (Frameworks) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 
-    <!-- 2. Стили (Local & Plugins) -->
-    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <link href="https://unpkg.com/gijgo@1.9.14/css/gijgo.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/bootstrap-datetimepicker.min.css">
+    <link rel="stylesheet" href="/css/style.css">
 
-    <!-- 3. Скрипты (JS) - ПОРЯДОК ВАЖЕН -->
     <script src="/js/jquery-3.3.1.min.js"></script>
     <script src="/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Gijgo для календаря -->
     <script src="https://unpkg.com/gijgo@1.9.14/js/gijgo.min.js"></script>
-
-    <!-- Шахматная логика (давай сделаем ее локальной, раз скачал) -->
     <script src="/js/chess.min.js"></script>
     <script src="/js/chessboard-1.0.0.min.js"></script>
 </head>
 
-<body class="bg-gray-100">
+<body>
+<div class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <div class="container-xl">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <span class="brand-mark">RK</span>
+                <span>RightKnight</span>
+            </a>
 
-<div class="min-h-full">
-    <!-- Navigation -->
-    <nav class="bg-gray-800">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 items-center justify-between">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <img class="h-8 w-8" src="/mark.svg?color=indigo&shade=500" alt="Your Company">
-                    </div>
-                    <div class="hidden md:block">
-                        <div class="ml-10 flex items-baseline space-x-4">
-                            <a href="/" class="bg-gray-900 text-white rounded-md px-3 py-2 text-sm font-medium" aria-current="page">Dashboard</a>
-                            <a href="/performance" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Performance</a>
-                            <a href="/games" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Games</a>
-                        </div>
-                    </div>
-                </div>
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#mainNavbar"
+                    aria-controls="mainNavbar"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav ms-auto mb-2 mb-md-0">
+                    <li class="nav-item">
+                        <a class="nav-link ${activePage.equals("home") ? "active" : ""}" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ${activePage.equals("performance") ? "active" : ""}" href="/performance">Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ${activePage.equals("games") ? "active" : ""}" href="/games">Games</a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
-    <!-- Main content -->
-    <main>
-        <div class="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-            <!-- https://jte.gg/syntax/#content -->
+    <main class="flex-grow-1 py-4">
+        <div class="container-xl">
             ${content}
         </div>
     </main>
 
-    <footer class="footer border-top py-3 mt-5 bg-light">
-        <div class="container-xl">
-            <div class="text-center">
-                Created by
-                <a href="https://github.com/ppeter777" target="_blank">Peter Pesotskiy</a>
-            </div>
+    <footer class="border-top py-3 mt-auto bg-light">
+        <div class="container-xl text-center text-muted small">
+            Created by
+            <a href="https://github.com/ppeter777" target="_blank" rel="noopener noreferrer">Peter Pesotskiy</a>
         </div>
     </footer>
-
 </div>
 </body>
 </html>
