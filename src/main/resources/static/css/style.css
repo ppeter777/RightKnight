@@ -110,3 +110,35 @@ body {
     }
 }
 
+
+/* Desktop game modal improvements */
+.game-modal-board {
+    width: 100%;
+    max-width: 100%;
+}
+
+.game-modal-side {
+    min-height: 0;
+}
+
+@media (min-width: 768px) {
+    .game-modal-board {
+        max-width: min(58vh, 620px);
+    }
+
+    .game-modal-side {
+        max-height: min(58vh, 620px);
+    }
+
+    .pgn-moves-panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+    }
+
+    .game-nav-controls {
+        flex-shrink: 0;
+    }
+}
+

@@ -96,15 +96,15 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-7">
-                            <div id="myBoard" style="width: 100%"></div>
+                        <div class="col-12 col-md-7 d-flex flex-column align-items-center">
+                            <div id="myBoard" class="game-modal-board" style="width: 100%"></div>
                             <div class="mt-2">
                                 <button type="button" id="flipBoardBtn" class="btn btn-sm btn-outline-secondary">Flip Board</button>
                             </div>
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-12 col-md-5 game-modal-side d-flex flex-column">
                             <div id="pgn-moves" class="pgn-moves-panel p-2 bg-light border"></div>
-                            <div class="game-nav-controls mt-3 text-center">
+                            <div class="game-nav-controls mt-auto pt-3 mt-3 text-center">
                                 <button type="button" id="moveStartBtn" class="btn btn-secondary">|&lt;</button>
                                 <button type="button" id="movePrevBtn" class="btn btn-secondary">&lt;</button>
                                 <button type="button" id="moveNextBtn" class="btn btn-secondary">&gt;</button>
