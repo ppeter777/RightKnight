@@ -61,16 +61,16 @@
                             </td>
                             <td class="small text-muted">${game.getOpeningName()}</td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary"
-                                        data-pgn="${game.getPgn()}"
-                                        onclick="viewGame(
-                                            this.getAttribute('data-pgn'),
-                                            '${game.isWhite() ? "zx316" : game.getOpponentId()}',
-                                            '${game.isWhite() ? "" : String.valueOf(game.getOpponentRating())}',
-                                            '${game.isWhite() ? game.getOpponentId() : "zx316"}',
-                                            '${game.isWhite() ? String.valueOf(game.getOpponentRating()) : ""}',
-                                            '${game.isWhite()}'
-                                        )">View</button>
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-primary js-view-game"
+                                    data-pgn="${game.getPgn()}"
+                                    data-white-name="${game.isWhite() ? game.getUserId() : game.getOpponentId()}"
+                                    data-white-rating="${game.isWhite() ? String.valueOf(game.getUserRating()) : String.valueOf(game.getOpponentRating())}"
+                                    data-black-name="${game.isWhite() ? game.getOpponentId() : game.getUserId()}"
+                                    data-black-rating="${game.isWhite() ? String.valueOf(game.getOpponentRating()) : String.valueOf(game.getUserRating())}"
+                                    data-board-orientation="${game.isWhite() ? "white" : "black"}">
+                                    View
+                                </button>
                             </td>
                         </tr>
                     @endfor
@@ -99,16 +99,16 @@
                         <div class="col-md-7">
                             <div id="myBoard" style="width: 100%"></div>
                             <div class="mt-2">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="board.flip()">Flip Board</button>
+                                <button type="button" id="flipBoardBtn" class="btn btn-sm btn-outline-secondary">Flip Board</button>
                             </div>
                         </div>
                         <div class="col-md-5">
-                            <div id="pgn-moves" class="p-2 bg-light border" style="height: 400px; overflow-y: auto;"></div>
-                            <div class="mt-3 text-center">
-                                <button class="btn btn-secondary" onclick="moveStart()">|&lt;</button>
-                                <button class="btn btn-secondary" onclick="movePrev()">&lt;</button>
-                                <button class="btn btn-secondary" onclick="moveNext()">&gt;</button>
-                                <button class="btn btn-secondary" onclick="moveEnd()">&gt;|</button>
+                            <div id="pgn-moves" class="pgn-moves-panel p-2 bg-light border"></div>
+                            <div class="game-nav-controls mt-3 text-center">
+                                <button type="button" id="moveStartBtn" class="btn btn-secondary">|&lt;</button>
+                                <button type="button" id="movePrevBtn" class="btn btn-secondary">&lt;</button>
+                                <button type="button" id="moveNextBtn" class="btn btn-secondary">&gt;</button>
+                                <button type="button" id="moveEndBtn" class="btn btn-secondary">&gt;|</button>
                             </div>
                         </div>
                     </div>
@@ -116,169 +116,6 @@
             </div>
         </div>
     </div>
-
-
-    <script>
-        var board = null;
-        var chess = null;
-        var moveHistory = [];
-        var currentMoveIndex = -1;
-
-        var engine = new Worker('/js/stockfish-18-lite-single.js');
-        var engineStatus = false;
-
-        engine.onmessage = function(event) {
-            var line = event.data;
-
-            // Игнорируем промежуточные данные, ловим только финальный скор на глубине
-            if (line.indexOf('depth 12') !== -1 || line.indexOf('mate') !== -1) {
-                parseScore(line);
-            }
-        };
-
-        function parseScore(line) {
-            var scoreMatch = line.match(/score cp (-?\d+)/);
-            if (scoreMatch) {
-                var cp = parseInt(scoreMatch[1]);
-                // Инвертируем, если ход черных (чтобы + всегда был за белых)
-                var score = (chess.turn() === 'b' ? -cp : cp) / 100;
-                $('#evaluation').text((score > 0 ? '+' : '') + score.toFixed(1));
-                return;
-            }
-
-            var mateMatch = line.match(/score mate (-?\d+)/);
-            if (mateMatch) {
-                var mate = parseInt(mateMatch[1]);
-                $('#evaluation').text('M' + Math.abs(mate));
-            }
-        }
-
-        function viewGame(pgn, whiteName, whiteRating, blackName, blackRating, userIsWhite) {
-            var whiteInfo = whiteName + (whiteRating ? ' (' + whiteRating + ')' : '');
-            var blackInfo = blackName + (blackRating ? ' (' + blackRating + ')' : '');
-
-            $('#player-white').text(whiteInfo);
-            $('#player-black').text(blackInfo);
-            $('#evaluation').text('...');
-
-            var modalElement = document.getElementById('gameModal');
-            var bootstrapModal = bootstrap.Modal.getOrCreateInstance(modalElement);
-            bootstrapModal.show();
-
-            modalElement.addEventListener('shown.bs.modal', function () {
-                var targetOrientation = (userIsWhite === 'true') ? 'white' : 'black';
-
-                var config = {
-                    position: 'start',
-                    orientation: targetOrientation,
-                    draggable: false,
-                    pieceTheme: '/img/chesspieces/wikipedia/{piece}.svg'
-                };
-
-                board = Chessboard('myBoard', config);
-
-                evaluatePosition();
-            }, { once: true });
-
-            chess = new Chess();
-            if (!chess.load_pgn(pgn)) return;
-
-            moveHistory = chess.history();
-            chess.reset();
-            currentMoveIndex = -1;
-
-            renderMoves();
-
-            $('#player-white').text(whiteName + ' (' + whiteRating + ')');
-            $('#player-black').text(blackName + ' (' + blackRating + ')');
-            $('#evaluation').text('0.0');
-
-            var modalElement = document.getElementById('gameModal');
-            bootstrap.Modal.getOrCreateInstance(modalElement).show();
-
-            modalElement.addEventListener('shown.bs.modal', function () {
-                board = Chessboard('myBoard', {
-                    position: 'start',
-                    pieceTheme: '/img/chesspieces/{piece}.svg'
-                });
-            }, { once: true });
-        }
-
-        function renderMoves() {
-            var html = '<div class="d-flex flex-wrap">';
-            for (var i = 0; i < moveHistory.length; i++) {
-                var move = moveHistory[i];
-                if (i % 2 === 0) {
-                    var moveNum = (i / 2) + 1;
-                    html += '<div class="w-100 mt-1"><strong>' + moveNum + '.</strong> ';
-                }
-
-                html += '<span id="move-' + i + '" class="px-1 cursor-pointer" onclick="goToMove(' + i + ')">' + move + '</span> ';
-
-                if (i % 2 !== 0 || i === moveHistory.length - 1) {
-                    html += '</div>';
-                }
-            }
-            html += '</div>';
-            $('#pgn-moves').html(html);
-        }
-
-        function goToMove(index) {
-            chess.reset();
-            for (let i = 0; i <= index; i++) {
-                chess.move(moveHistory[i]);
-            }
-            currentMoveIndex = index;
-            board.position(chess.fen(), false);
-            evaluatePosition();
-            updateHighlight();
-        }
-
-        function updateHighlight() {
-            $('.cursor-pointer').removeClass('bg-warning fw-bold text-primary');
-            $('#move-' + currentMoveIndex).addClass('bg-warning fw-bold text-primary');
-        }
-
-        function moveNext() {
-            if (chess && currentMoveIndex < moveHistory.length - 1) {
-                currentMoveIndex++;
-                chess.move(moveHistory[currentMoveIndex]);
-                board.position(chess.fen(), false);
-
-                $('#evaluation').text('...');
-                evaluatePosition();
-                updateHighlight();
-            }
-        }
-
-        function movePrev() {
-            if (chess && currentMoveIndex >= 0) {
-                chess.undo();
-                currentMoveIndex--;
-                board.position(chess.fen(), false);
-                evaluatePosition();
-                updateHighlight();
-            }
-        }
-
-        function startEngine() {
-            engine.postMessage('uci');
-            engine.postMessage('ucinewgame');
-            engine.postMessage('isready');
-            engineStatus = true;
-        }
-
-        var evalTimer = null;
-
-        function evaluatePosition() {
-            if (!engineStatus) startEngine();
-
-            engine.postMessage('position fen ' + chess.fen());
-            engine.postMessage('go depth 12');
-        }
-
-        function moveStart() { if(chess) { chess.reset(); currentMoveIndex = -1; board.start(); } }
-        function moveEnd() { while(chess && currentMoveIndex < moveHistory.length - 1) moveNext(); }
-    </script>
+    <script src="/js/games.js"></script>
 
 `)
