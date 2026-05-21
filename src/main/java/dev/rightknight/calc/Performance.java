@@ -5,6 +5,8 @@ import chariot.model.Game;
 import chariot.model.Player;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.ZonedDateTime;
@@ -13,17 +15,26 @@ import java.util.*;
 @Service
 public class Performance {
 
+    private static final Logger log = LoggerFactory.getLogger(Performance.class);
+
     @Autowired
     private GameRepository gameRepository;
 
     public Map<String, Integer> performanceCalc(String player, ZonedDateTime from, ZonedDateTime until, String mode, Boolean rated) {
+        String normalizedPlayer = normalizePlayer(player);
+
         // 1. Получаем все игры за период (из БД или API)
-        List<GameEntity> allGames = getGames(player, from, until);
+        List<GameEntity> allGames = getGames(normalizedPlayer, from, until);
 
         // 2. Фильтруем их по выбранным в форме параметрам
         List<GameEntity> filteredGames = allGames.stream()
                 .filter(g -> isMatch(g, mode, rated))
                 .toList();
+
+        log.info(
+                "Performance calculation: player={}, from={}, until={}, mode={}, rated={}, allGames={}, filteredGames={}",
+                normalizedPlayer, from, until, mode, rated, allGames.size(), filteredGames.size()
+        );
 
         // 3. Отдаем отфильтрованный список Entity в расчет
         return calculateResults(filteredGames);
@@ -32,16 +43,29 @@ public class Performance {
 
     private List<GameEntity> getGames(String player, ZonedDateTime from, ZonedDateTime until) {
         // 1. Ищем в БД
-        List<GameEntity> dbGames = gameRepository.findAllByUserIdAndCreatedAtBetween(player, from, until);
+        List<GameEntity> dbGames = gameRepository.findAllByUserIdIgnoreCaseAndCreatedAtBetween(player, from, until);
+
+        log.info(
+                "Performance cache lookup: player={}, from={}, until={}, dbGames={}",
+                player, from, until, dbGames.size()
+        );
 
         if (!dbGames.isEmpty()) {
-            System.out.println("Данные взяты из кэша БД");
             return dbGames;
         }
 
         // 2. Если в базе пусто, качаем
-        System.out.println("Кэш пуст, запрашиваем Lichess API...");
+        log.info("Performance cache miss. Loading games from Lichess: player={}", player);
         List<GameEntity> apiGames = fetchGamesFromLichess(player, from, until);
+
+        long gamesWithOpponentRating = apiGames.stream()
+                .filter(g -> g.getOpponentRating() > 0)
+                .count();
+
+        log.info(
+                "Lichess games loaded: player={}, apiGames={}, gamesWithOpponentRating={}",
+                player, apiGames.size(), gamesWithOpponentRating
+        );
 
         // 3. Сохраняем скачанное
         saveGames(apiGames, player);
@@ -74,12 +98,15 @@ public class Performance {
     }
 
     private void saveGames(List<GameEntity> apiGames, String player) {
-        if (apiGames.isEmpty()) return;
+        if (apiGames.isEmpty()) {
+            log.info("No games to save: player={}", player);
+            return;
+        }
 
         // Spring Data JPA сам поймет по ID (Primary Key),
         // что если игра уже есть - ее надо обновить, если нет - создать.
         gameRepository.saveAll(apiGames);
-        System.out.println("Сохранено в базу: " + apiGames.size() + " игр для игрока " + player);
+        log.info("Saved games to database: player={}, games={}", player, apiGames.size());
     }
 
     private GameInfo parseGame(Game game, String userId) {
@@ -104,15 +131,17 @@ public class Performance {
     }
 
     private GameEntity mapToEntity(chariot.model.Game game, String userId) {
+        String normalizedUserId = normalizePlayer(userId);
+
         var entity = new GameEntity();
-        entity.setId(game.id());
-        entity.setUserId(userId);
+        entity.setId(normalizedUserId + ":" + game.id());
+        entity.setUserId(normalizedUserId);
         entity.setCreatedAt(game.createdAt());
         entity.setMode(game.speed());
         entity.setRated(game.rated());
 
         // Определяем, за какой цвет играл наш пользователь
-        boolean isWhite = game.players().white().name().equalsIgnoreCase(userId);
+        boolean isWhite = game.players().white().name().equalsIgnoreCase(normalizedUserId);
         entity.setWhite(isWhite);
 
         game.clock().map(c -> {
@@ -210,6 +239,10 @@ public class Performance {
             if (expected < score) lo = mid; else hi = mid;
         }
         return Math.round(lo);
+    }
+
+    private String normalizePlayer(String player) {
+        return player.trim().toLowerCase(Locale.ROOT);
     }
 
     record GameInfo(boolean isWhite, int oppRating, float score) {}
