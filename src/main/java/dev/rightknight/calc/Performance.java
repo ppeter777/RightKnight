@@ -109,27 +109,6 @@ public class Performance {
         log.info("Saved games to database: player={}, games={}", player, apiGames.size());
     }
 
-    private GameInfo parseGame(Game game, String userId) {
-        var white = game.players().white();
-        var black = game.players().black();
-
-        boolean isWhite = white.name().equalsIgnoreCase(userId);
-        var opponent = isWhite ? black : white;
-
-        // Безопасно достаем рейтинг через паттерн-матчинг (Java 17+)
-        int oppRating = (opponent instanceof Player.Account checked)
-                ? checked.rating()
-                : 0;
-
-        float score = 0.5f;
-        if (game.winner().isPresent()) {
-            boolean whiteWon = game.winner().get().name().equals("white");
-            score = (isWhite == whiteWon) ? 1.0f : 0.0f;
-        }
-
-        return new GameInfo(isWhite, oppRating, score);
-    }
-
     private GameEntity mapToEntity(chariot.model.Game game, String userId) {
         String normalizedUserId = normalizePlayer(userId);
 
@@ -245,5 +224,4 @@ public class Performance {
         return player.trim().toLowerCase(Locale.ROOT);
     }
 
-    record GameInfo(boolean isWhite, int oppRating, float score) {}
 }
