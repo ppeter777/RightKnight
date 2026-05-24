@@ -31,3 +31,4 @@ tmp/
 
 .env
 postgres_data/
+docker-compose.override.yml
