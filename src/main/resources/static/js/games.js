@@ -31,7 +31,7 @@ function bindGamePageEvents() {
         goToMove(moveIndex);
     });
 
-    $('#flipBoardBtn').on('click', function () {
+    $('#flipBoardBtn, #flipBoardMobileBtn').on('click', function () {
         if (board) {
             board.flip();
         }

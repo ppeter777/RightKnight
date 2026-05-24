@@ -94,7 +94,7 @@
 
 <button type="button"
         id="flipBoardBtn"
-        class="btn btn-sm btn-outline-light game-flip-button"
+        class="btn btn-sm btn-outline-light game-flip-button d-none d-md-inline-flex"
         title="Flip board">
     Flip
 </button>
@@ -112,6 +112,14 @@
                         <div class="col-12 col-md-5 game-modal-side d-flex flex-column">
                             <div id="pgn-moves" class="pgn-moves-panel p-2 bg-light border"></div>
                             <div class="game-nav-controls mt-auto pt-3 mt-3 text-center">
+
+<button type="button"
+        id="flipBoardMobileBtn"
+        class="btn btn-outline-secondary btn-sm game-flip-button-mobile d-md-none"
+        title="Flip board">
+    Flip
+</button>
+
                                 <button type="button" id="moveStartBtn" class="btn btn-secondary">|&lt;</button>
                                 <button type="button" id="movePrevBtn" class="btn btn-secondary">&lt;</button>
                                 <button type="button" id="moveNextBtn" class="btn btn-secondary">&gt;</button>

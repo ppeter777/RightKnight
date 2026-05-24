@@ -284,3 +284,43 @@ body {
     }
 }
 
+
+/* Responsive Flip button placement */
+@media (max-width: 767.98px) {
+    #gameModal .modal-header {
+        padding: 0.65rem 0.9rem;
+    }
+
+    #gameModal .modal-body {
+        padding: 0.65rem 0.75rem 0.9rem;
+    }
+
+    #player-white,
+    #player-black {
+        max-width: 43%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.92rem;
+    }
+
+    #evaluation {
+        font-size: 1rem;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+
+    .game-flip-button-mobile {
+        min-width: auto !important;
+        min-height: 2.25rem;
+        padding: 0.25rem 0.55rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .game-flip-button {
+        align-items: center;
+    }
+}
+
