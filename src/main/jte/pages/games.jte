@@ -91,6 +91,14 @@
                     <div class="row mb-2 px-3">
                         <div class="col-12 d-flex justify-content-between bg-dark text-white p-2 rounded">
                             <div id="player-black">Black: Loading...</div>
+
+<button type="button"
+        id="flipBoardBtn"
+        class="btn btn-sm btn-outline-light game-flip-button"
+        title="Flip board">
+    Flip
+</button>
+
                             <div class="fw-bold text-warning" id="evaluation">0.0</div>
                             <div id="player-white">White: Loading...</div>
                         </div>
@@ -99,8 +107,7 @@
                         <div class="col-12 col-md-7 d-flex flex-column align-items-center">
                             <div id="myBoard" class="game-modal-board" style="width: 100%"></div>
                             <div class="mt-2">
-                                <button type="button" id="flipBoardBtn" class="btn btn-sm btn-outline-secondary">Flip Board</button>
-                            </div>
+</div>
                         </div>
                         <div class="col-12 col-md-5 game-modal-side d-flex flex-column">
                             <div id="pgn-moves" class="pgn-moves-panel p-2 bg-light border"></div>

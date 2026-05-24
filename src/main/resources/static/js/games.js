@@ -128,7 +128,10 @@ function viewGame(pgn, whiteName, whiteRating, blackName, blackRating, boardOrie
 }
 
 function formatPlayer(name, rating) {
-    return name + (rating ? ' (' + rating + ')' : '');
+    var safeName = name && name.trim() ? name.trim() : 'Unknown';
+    var safeRating = rating && rating !== '0' ? rating : '—';
+
+    return safeName + ' (' + safeRating + ')';
 }
 
 function initializeBoard(boardOrientation) {

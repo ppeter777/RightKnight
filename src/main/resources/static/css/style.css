@@ -142,3 +142,145 @@ body {
     }
 }
 
+
+/* Game review modal: maximize board while keeping controls usable */
+#gameModal .modal-dialog {
+    max-width: min(96vw, 1180px);
+}
+
+#gameModal .modal-header {
+    padding: 0.75rem 1rem;
+}
+
+#gameModal .modal-body {
+    padding: 0.75rem 1rem 1rem;
+}
+
+#gameModal .modal-title {
+    font-size: 1.25rem;
+}
+
+#gameModal .player-bar,
+#gameModal .game-player-bar {
+    min-height: 2.5rem;
+}
+
+#player-white,
+#player-black {
+    min-width: 0;
+    max-width: 42%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#evaluation {
+    flex: 0 0 auto;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.game-modal-board,
+#myBoard {
+    width: 100%;
+    max-width: 100%;
+}
+
+.game-nav-controls {
+    margin-top: 0.75rem !important;
+    padding-top: 0 !important;
+}
+
+.game-nav-controls .btn {
+    min-width: 3.25rem;
+    min-height: 2.5rem;
+}
+
+@media (min-width: 768px) {
+    #gameModal .modal-body {
+        max-height: calc(100vh - 7rem);
+        overflow: hidden;
+    }
+
+    .game-modal-board,
+    #myBoard {
+        max-width: min(66vh, 680px);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .game-modal-side {
+        max-height: min(66vh, 680px);
+        min-height: 0;
+    }
+
+    .pgn-moves-panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 767.98px) {
+    #player-white,
+    #player-black {
+        max-width: 40%;
+        font-size: 0.9rem;
+    }
+
+    #evaluation {
+        font-size: 1rem;
+    }
+}
+
+
+/* Keep Flip Board button close to the chessboard */
+#flipBoardBtn {
+    margin-top: 0.5rem;
+    align-self: center;
+}
+
+@media (min-width: 768px) {
+    #flipBoardBtn {
+        margin-top: 0.4rem;
+        margin-bottom: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    #flipBoardBtn {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+
+/* Compact Flip button in game review player bar */
+.game-flip-button {
+    flex: 0 0 auto;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+@media (max-width: 767.98px) {
+    .game-flip-button {
+        padding: 0.1rem 0.35rem;
+        font-size: 0.7rem;
+    }
+
+    #player-white,
+    #player-black {
+        max-width: 34%;
+    }
+}
+
+@media (min-width: 768px) {
+    #player-white,
+    #player-black {
+        max-width: 38%;
+    }
+}
+
