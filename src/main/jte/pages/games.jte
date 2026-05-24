@@ -118,7 +118,7 @@
                                 <button type="button" id="moveEndBtn" class="btn btn-secondary">&gt;|</button>
                                 <button type="button" id="flipBoardMobileBtn"
                                         class="btn btn-outline-secondary btn-sm game-flip-button-mobile d-md-none"
-                                        title="Flip board">>Flip
+                                        title="Flip board">&#8645;
                                 </button>
                             </div>
                         </div>
