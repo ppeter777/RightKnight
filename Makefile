@@ -35,3 +35,13 @@ deploy:
 	docker compose build app
 	docker compose up -d
 	docker compose ps
+
+dev-db:
+	docker compose up -d db
+
+dev-run:
+	./gradlew bootRun --args='--spring.profiles.active=dev'
+
+dev:
+	docker compose up -d db
+	./gradlew bootRun --args='--spring.profiles.active=dev'
