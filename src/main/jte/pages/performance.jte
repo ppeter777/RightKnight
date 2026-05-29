@@ -9,8 +9,17 @@
 @param Boolean rated = null
 @param java.time.LocalDate from = null
 @param java.time.LocalDate until = null
+@param String currentUsername = null
+@param String csrfParameterName = "_csrf"
+@param String csrfToken = ""
 
-@template.layout.main(title = "RightKnight - Performance", activePage = "performance", content = @`
+@template.layout.main(
+    title = "RightKnight - Performance",
+    activePage = "performance",
+    currentUsername = currentUsername,
+    csrfParameterName = csrfParameterName,
+    csrfToken = csrfToken,
+    content = @`
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <h1 class="h3 mb-3">Performance Analyzer</h1>

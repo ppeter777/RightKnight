@@ -1,9 +1,16 @@
 @param Boolean hasError
 @param Boolean registered
+@param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
 
-@template.layout.main(title = "RightKnight - Login", activePage = "login", content = @`
+@template.layout.main(
+    title = "RightKnight - Login",
+    activePage = "login",
+    currentUsername = currentUsername,
+    csrfParameterName = csrfParameterName,
+    csrfToken = csrfToken,
+    content = @`
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm">

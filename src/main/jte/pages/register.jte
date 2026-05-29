@@ -1,9 +1,16 @@
 @param dev.rightknight.auth.RegisterRequest form
 @param String errorMessage
+@param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
 
-@template.layout.main(title = "RightKnight - Register", activePage = "register", content = @`
+@template.layout.main(
+    title = "RightKnight - Register",
+    activePage = "register",
+    currentUsername = currentUsername,
+    csrfParameterName = csrfParameterName,
+    csrfToken = csrfToken,
+    content = @`
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             <div class="card shadow-sm">
