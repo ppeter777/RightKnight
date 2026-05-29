@@ -1,6 +1,9 @@
 @param String title = "RightKnight"
 @param String activePage = ""
 @param gg.jte.Content content
+@param String currentUsername = null
+@param String csrfParameterName = "_csrf"
+@param String csrfToken = ""
 
 <!DOCTYPE html>
 <html lang="en">
@@ -53,6 +56,19 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link ${activePage.equals("games") ? "active" : ""}" href="/games">Games</a>
+                    </li>
+                    <li class="nav-item ms-md-3">
+                        @if(currentUsername == null)
+                            <a class="nav-link ${activePage.equals("login") ? "active" : ""}" href="/login">Войти</a>
+                        @else
+                            <span class="navbar-text text-light me-2">${currentUsername}</span>
+                            <form method="post" action="/logout" class="d-inline">
+                                <input type="hidden" name="${csrfParameterName}" value="${csrfToken}">
+                                <button type="submit" class="btn btn-link nav-link d-inline p-0 align-baseline">
+                                    Выйти
+                                </button>
+                            </form>
+                        @endif
                     </li>
                 </ul>
             </div>

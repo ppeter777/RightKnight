@@ -1,10 +1,15 @@
-@param String username
+@param String currentUsername = null
 
 @template.layout.main(title = "RightKnight - Dashboard", activePage = "home", content = @`
     <div class="card shadow-sm">
         <div class="card-body">
-            <h1 class="h3 mb-3">Welcome, ${username}!</h1>
-            <p class="text-muted mb-0">This is your dashboard. Here you can view your recent activity and manage your account.</p>
+            @if(currentUsername == null)
+                <h1 class="h3 mb-3">Welcome to RightKnight!</h1>
+                <p class="text-muted mb-0">Sign in to manage your games and analysis.</p>
+            @else
+                <h1 class="h3 mb-3">Welcome, ${currentUsername}!</h1>
+                <p class="text-muted mb-0">This is your dashboard. Here you can view your recent activity and manage your account.</p>
+            @endif
         </div>
     </div>
 `)

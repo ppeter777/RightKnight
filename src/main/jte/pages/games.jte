@@ -96,7 +96,7 @@
         id="flipBoardBtn"
         class="btn btn-sm btn-outline-light game-flip-button d-none d-md-inline-flex"
         title="Flip board">
-    Flip
+    &#8645;
 </button>
 
                             <div class="fw-bold text-warning" id="evaluation">0.0</div>
@@ -109,7 +109,7 @@
                             <div class="mt-2">
 </div>
                         </div>
-                        <div class="col-12 col-md-5 game-modal-side d-flex flex-column">
+                        <div class="col-12 col-md-3 game-modal-side d-flex flex-column">
                             <div id="pgn-moves" class="pgn-moves-panel p-2 bg-light border"></div>
                             <div class="game-nav-controls mt-auto pt-3 mt-3 text-center">
                                 <button type="button" id="moveStartBtn" class="btn btn-secondary">|&lt;</button>

@@ -22,10 +22,10 @@ public class TemplateController {
     GameRepository gameRepository;
 
     @GetMapping("/")
-    public String home(Model model) {
-        model.addAttribute("username", "Peter_P");
+    public String home() {
         return "pages/home";
     }
+
     @GetMapping("/performance")
     public String showPerformance(
             @RequestParam(required = false) String player,
