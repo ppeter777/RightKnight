@@ -57,14 +57,18 @@
                     <li class="nav-item">
                         <a class="nav-link ${activePage.equals("games") ? "active" : ""}" href="/games">Games</a>
                     </li>
-                    <li class="nav-item ms-md-3">
+                    <li class="nav-item d-flex align-items-center ms-md-3">
                         @if(currentUsername == null)
-                            <a class="nav-link ${activePage.equals("login") ? "active" : ""}" href="/login">Войти</a>
+                            <a class="nav-link ${activePage.equals("login") ? "active" : ""}" href="/login">
+                                Войти
+                            </a>
                         @else
-                            <span class="navbar-text text-light me-2">${currentUsername}</span>
-                            <form method="post" action="/logout" class="d-inline">
+                            <span class="navbar-text text-light pe-2">
+                                ${currentUsername}
+                            </span>
+                            <form method="post" action="/logout" class="d-flex">
                                 <input type="hidden" name="${csrfParameterName}" value="${csrfToken}">
-                                <button type="submit" class="btn btn-link nav-link d-inline p-0 align-baseline">
+                                <button type="submit" class="btn btn-link nav-link d-inline">
                                     Выйти
                                 </button>
                             </form>
