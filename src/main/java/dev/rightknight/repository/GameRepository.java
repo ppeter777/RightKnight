@@ -1,5 +1,6 @@
 package dev.rightknight.repository;
 
+import dev.rightknight.model.AppUserEntity;
 import dev.rightknight.model.GameEntity;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
@@ -13,4 +14,10 @@ public interface GameRepository extends CrudRepository<GameEntity, String> {
     List<GameEntity> findAllByUserIdIgnoreCaseAndCreatedAtBetween(String userId, ZonedDateTime start, ZonedDateTime end);
     List<GameEntity> findTop50ByOrderByCreatedAtDesc();
     List<GameEntity> findByOpeningNameContainingIgnoreCase(String search);
+    List<GameEntity> findByOwnerOrderByCreatedAtDesc(AppUserEntity owner);
+    List<GameEntity> findTop50ByOwnerOrderByCreatedAtDesc(AppUserEntity owner);
+    List<GameEntity> findByOwnerAndOpeningNameContainingIgnoreCaseOrderByCreatedAtDesc(
+            AppUserEntity owner,
+            String openingName
+    );
 }

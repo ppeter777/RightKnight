@@ -76,16 +76,23 @@ public class TemplateController {
     public String showGames(
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "all") String side,
+            Authentication authentication,
             Model model) {
 
+        var currentUser = currentUserService.getCurrentUser(authentication)
+                .orElseThrow();
+
         List<GameEntity> games;
-        if (search != null && !search.isEmpty()) {
-            games = gameRepository.findByOpeningNameContainingIgnoreCase(search);
+
+        if (search != null && !search.isBlank()) {
+            games = gameRepository.findByOwnerAndOpeningNameContainingIgnoreCaseOrderByCreatedAtDesc(
+                    currentUser,
+                    search
+            );
         } else {
-            games = gameRepository.findTop50ByOrderByCreatedAtDesc();
+            games = gameRepository.findTop50ByOwnerOrderByCreatedAtDesc(currentUser);
         }
 
-        // Фильтруем по цвету
         if (!"all".equals(side)) {
             boolean lookForWhite = "white".equals(side);
             games = games.stream()

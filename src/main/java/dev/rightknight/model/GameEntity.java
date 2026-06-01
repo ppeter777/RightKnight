@@ -29,6 +29,10 @@ public class GameEntity {
     private String openingEco;
     private String clockLimit;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_user_id")
+    private AppUserEntity owner;
+
 }
 
 
