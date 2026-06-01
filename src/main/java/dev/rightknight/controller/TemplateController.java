@@ -9,6 +9,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import dev.rightknight.security.CurrentUserService;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -21,8 +23,14 @@ public class TemplateController {
     @Autowired
     GameRepository gameRepository;
 
+    @Autowired
+    CurrentUserService currentUserService;
+
     @GetMapping("/")
-    public String home() {
+    public String home(Authentication authentication, Model model) {
+        currentUserService.getCurrentUser(authentication)
+                .ifPresent(user -> model.addAttribute("lichessUsername", user.getLichessUsername()));
+
         return "pages/home";
     }
 
@@ -33,10 +41,17 @@ public class TemplateController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate until,
             @RequestParam(required = false, defaultValue = "all") String mode,
             @RequestParam(required = false) Boolean rated,
+            Authentication authentication,
             Model model) {
 
         if (player == null || from == null || until == null) {
-            model.addAttribute("player", "zx316");
+            currentUserService.getCurrentUser(authentication)
+                    .map(user -> user.getLichessUsername())
+                    .ifPresentOrElse(
+                            lichessUsername -> model.addAttribute("player", lichessUsername),
+                            () -> model.addAttribute("player", "")
+                    );
+
             return "pages/performance";
         }
 

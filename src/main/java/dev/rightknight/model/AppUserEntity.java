@@ -40,6 +40,9 @@ public class AppUserEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "lichess_username", length = 50)
+    private String lichessUsername;
+
     @PrePersist
     void prePersist() {
         OffsetDateTime now = OffsetDateTime.now();
