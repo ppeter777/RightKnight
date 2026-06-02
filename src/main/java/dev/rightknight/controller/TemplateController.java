@@ -73,37 +73,50 @@ public class TemplateController {
     }
 
     @GetMapping("/games")
-    public String showGames(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false, defaultValue = "all") String side,
-            Authentication authentication,
-            Model model) {
+public String showGames(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false, defaultValue = "all") String side,
+        Authentication authentication,
+        Model model) {
 
-        var currentUser = currentUserService.getCurrentUser(authentication)
-                .orElseThrow();
+    var lichessUsername = currentUserService
+            .getCurrentUser(authentication)
+            .map(user -> user.getLichessUsername())
+            .orElse(null);
 
-        List<GameEntity> games;
-
-        if (search != null && !search.isBlank()) {
-            games = gameRepository.findByOwnerAndOpeningNameContainingIgnoreCaseOrderByCreatedAtDesc(
-                    currentUser,
-                    search
-            );
-        } else {
-            games = gameRepository.findTop50ByOwnerOrderByCreatedAtDesc(currentUser);
-        }
-
-        if (!"all".equals(side)) {
-            boolean lookForWhite = "white".equals(side);
-            games = games.stream()
-                    .filter(g -> g.isWhite() == lookForWhite)
-                    .toList();
-        }
-
-        model.addAttribute("games", games);
-        model.addAttribute("search", search);
-        model.addAttribute("side", side);
+    if (lichessUsername == null) {
+        model.addAttribute("games", List.of());
         return "pages/games";
     }
+
+    List<GameEntity> games;
+
+    if (search != null && !search.isBlank()) {
+        games = gameRepository
+                .findByUserIdAndOpeningNameContainingIgnoreCase(
+                        lichessUsername,
+                        search
+                );
+    } else {
+        games = gameRepository
+                .findTop50ByUserIdOrderByCreatedAtDesc(
+                        lichessUsername
+                );
+    }
+
+    if (!"all".equals(side)) {
+        boolean lookForWhite = "white".equals(side);
+
+        games = games.stream()
+                .filter(g -> g.isWhite() == lookForWhite)
+                .toList();
+    }
+
+    model.addAttribute("games", games);
+    model.addAttribute("search", search);
+    model.addAttribute("side", side);
+
+    return "pages/games";
+}
 
 }
