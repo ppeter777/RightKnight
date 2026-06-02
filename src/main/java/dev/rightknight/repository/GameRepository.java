@@ -20,4 +20,10 @@ public interface GameRepository extends CrudRepository<GameEntity, String> {
             AppUserEntity owner,
             String openingName
     );
+    List<GameEntity> findTop50ByUserIdOrderByCreatedAtDesc(String userId);
+
+List<GameEntity> findByUserIdAndOpeningNameContainingIgnoreCase(
+        String userId,
+        String openingName
+);
 }
