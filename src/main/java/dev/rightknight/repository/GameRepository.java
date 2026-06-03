@@ -6,6 +6,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface GameRepository extends CrudRepository<GameEntity, String> {
@@ -21,9 +22,9 @@ public interface GameRepository extends CrudRepository<GameEntity, String> {
             String openingName
     );
     List<GameEntity> findTop50ByUserIdOrderByCreatedAtDesc(String userId);
-
-List<GameEntity> findByUserIdAndOpeningNameContainingIgnoreCase(
+    List<GameEntity> findByUserIdAndOpeningNameContainingIgnoreCase(
         String userId,
         String openingName
-);
+    );
+    Optional<GameEntity> findFirstByUserIdIgnoreCaseOrderByCreatedAtDesc(String userId);
 }

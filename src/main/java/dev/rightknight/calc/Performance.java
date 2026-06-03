@@ -40,38 +40,48 @@ public class Performance {
         return calculateResults(filteredGames);
     }
 
-
     private List<GameEntity> getGames(String player, ZonedDateTime from, ZonedDateTime until) {
-        // 1. Ищем в БД
         List<GameEntity> dbGames = gameRepository.findAllByUserIdIgnoreCaseAndCreatedAtBetween(player, from, until);
 
         log.info(
-                "Performance cache lookup: player={}, from={}, until={}, dbGames={}",
+                "Performance database lookup: player={}, from={}, until={}, dbGames={}",
                 player, from, until, dbGames.size()
         );
 
-        if (!dbGames.isEmpty()) {
-            return dbGames;
-        }
-
-        // 2. Если в базе пусто, качаем
-        log.info("Performance cache miss. Loading games from Lichess: player={}", player);
-        List<GameEntity> apiGames = fetchGamesFromLichess(player, from, until);
-
-        long gamesWithOpponentRating = apiGames.stream()
-                .filter(g -> g.getOpponentRating() > 0)
-                .count();
-
-        log.info(
-                "Lichess games loaded: player={}, apiGames={}, gamesWithOpponentRating={}",
-                player, apiGames.size(), gamesWithOpponentRating
-        );
-
-        // 3. Сохраняем скачанное
-        saveGames(apiGames, player);
-
-        return apiGames;
+        return dbGames;
     }
+
+//    private List<GameEntity> getGames(String player, ZonedDateTime from, ZonedDateTime until) {
+//        // 1. Ищем в БД
+//        List<GameEntity> dbGames = gameRepository.findAllByUserIdIgnoreCaseAndCreatedAtBetween(player, from, until);
+//
+//        log.info(
+//                "Performance cache lookup: player={}, from={}, until={}, dbGames={}",
+//                player, from, until, dbGames.size()
+//        );
+//
+//        if (!dbGames.isEmpty()) {
+//            return dbGames;
+//        }
+//
+//        // 2. Если в базе пусто, качаем
+//        log.info("Performance cache miss. Loading games from Lichess: player={}", player);
+//        List<GameEntity> apiGames = fetchGamesFromLichess(player, from, until);
+//
+//        long gamesWithOpponentRating = apiGames.stream()
+//                .filter(g -> g.getOpponentRating() > 0)
+//                .count();
+//
+//        log.info(
+//                "Lichess games loaded: player={}, apiGames={}, gamesWithOpponentRating={}",
+//                player, apiGames.size(), gamesWithOpponentRating
+//        );
+//
+//        // 3. Сохраняем скачанное
+//        saveGames(apiGames, player);
+//
+//        return apiGames;
+//    }
 
     private boolean isMatch(GameEntity game, String mode, Boolean rated) {
         // Проверяем режим игры (blitz, rapid и т.д.)
@@ -85,82 +95,82 @@ public class Performance {
         return modeMatches && ratedMatches;
     }
 
-    private List<GameEntity> fetchGamesFromLichess(String player, ZonedDateTime from, ZonedDateTime until) {
-        var client = Client.basic();
-        return client.games().byUserId(player, params -> params
-                        .since(from)
-                        .until(until)
-                        .pgn(true) // Чтобы скачивался текст партий
-                        .opening(true) // Чтобы были дебюты
-                ).stream()
-                .map(g -> mapToEntity(g, player))
-                .toList();
-    }
+//    private List<GameEntity> fetchGamesFromLichess(String player, ZonedDateTime from, ZonedDateTime until) {
+//        var client = Client.basic();
+//        return client.games().byUserId(player, params -> params
+//                        .since(from)
+//                        .until(until)
+//                        .pgn(true) // Чтобы скачивался текст партий
+//                        .opening(true) // Чтобы были дебюты
+//                ).stream()
+//                .map(g -> mapToEntity(g, player))
+//                .toList();
+//    }
 
-    private void saveGames(List<GameEntity> apiGames, String player) {
-        if (apiGames.isEmpty()) {
-            log.info("No games to save: player={}", player);
-            return;
-        }
+//    private void saveGames(List<GameEntity> apiGames, String player) {
+//        if (apiGames.isEmpty()) {
+//            log.info("No games to save: player={}", player);
+//            return;
+//        }
+//
+//        // Spring Data JPA сам поймет по ID (Primary Key),
+//        // что если игра уже есть - ее надо обновить, если нет - создать.
+//        gameRepository.saveAll(apiGames);
+//        log.info("Saved games to database: player={}, games={}", player, apiGames.size());
+//    }
 
-        // Spring Data JPA сам поймет по ID (Primary Key),
-        // что если игра уже есть - ее надо обновить, если нет - создать.
-        gameRepository.saveAll(apiGames);
-        log.info("Saved games to database: player={}, games={}", player, apiGames.size());
-    }
-
-    private GameEntity mapToEntity(chariot.model.Game game, String userId) {
-        String normalizedUserId = normalizePlayer(userId);
-
-        var entity = new GameEntity();
-        entity.setId(normalizedUserId + ":" + game.id());
-        entity.setUserId(normalizedUserId);
-        entity.setCreatedAt(game.createdAt());
-        entity.setMode(game.speed());
-        entity.setRated(game.rated());
-
-        // Определяем, за какой цвет играл наш пользователь
-        boolean isWhite = game.players().white().name().equalsIgnoreCase(normalizedUserId);
-        entity.setWhite(isWhite);
-
-        game.clock().map(c -> {
-            int minutes = c.initial() / 60;
-            int increment = c.increment();
-            entity.setClockLimit(minutes + "+" + increment);
-            return c;
-        });
-
-        // Достаем оппонента и его рейтинг
-        var opponent = isWhite ? game.players().black() : game.players().white();
-        entity.setOpponentId(opponent.name());
-
-        // В версии 0.1.21 используем Account для рейтинга
-        if (opponent instanceof chariot.model.Player.Account account) {
-            entity.setOpponentRating(account.rating());
-        } else {
-            entity.setOpponentRating(0);
-        }
-
-        // Считаем результат (score)
-        float score = 0.5f;
-        if (game.winner().isPresent()) {
-            boolean whiteWon = game.winner().get().name().equals("white");
-            score = (isWhite == whiteWon) ? 1.0f : 0.0f;
-        }
-        entity.setScore(score);
-
-        // Новые поля: PGN и Дебюты
-        entity.setPgn(game.pgn().orElse(""));
-
-        // opening() возвращает Optional, поэтому используем map/orElse
-        game.opening().map(o -> {
-            entity.setOpeningName(o.name());
-            entity.setOpeningEco(o.eco());
-            return o;
-        });
-
-        return entity;
-    }
+//    private GameEntity mapToEntity(chariot.model.Game game, String userId) {
+//        String normalizedUserId = normalizePlayer(userId);
+//
+//        var entity = new GameEntity();
+//        entity.setId(normalizedUserId + ":" + game.id());
+//        entity.setUserId(normalizedUserId);
+//        entity.setCreatedAt(game.createdAt());
+//        entity.setMode(game.speed());
+//        entity.setRated(game.rated());
+//
+//        // Определяем, за какой цвет играл наш пользователь
+//        boolean isWhite = game.players().white().name().equalsIgnoreCase(normalizedUserId);
+//        entity.setWhite(isWhite);
+//
+//        game.clock().map(c -> {
+//            int minutes = c.initial() / 60;
+//            int increment = c.increment();
+//            entity.setClockLimit(minutes + "+" + increment);
+//            return c;
+//        });
+//
+//        // Достаем оппонента и его рейтинг
+//        var opponent = isWhite ? game.players().black() : game.players().white();
+//        entity.setOpponentId(opponent.name());
+//
+//        // В версии 0.1.21 используем Account для рейтинга
+//        if (opponent instanceof chariot.model.Player.Account account) {
+//            entity.setOpponentRating(account.rating());
+//        } else {
+//            entity.setOpponentRating(0);
+//        }
+//
+//        // Считаем результат (score)
+//        float score = 0.5f;
+//        if (game.winner().isPresent()) {
+//            boolean whiteWon = game.winner().get().name().equals("white");
+//            score = (isWhite == whiteWon) ? 1.0f : 0.0f;
+//        }
+//        entity.setScore(score);
+//
+//        // Новые поля: PGN и Дебюты
+//        entity.setPgn(game.pgn().orElse(""));
+//
+//        // opening() возвращает Optional, поэтому используем map/orElse
+//        game.opening().map(o -> {
+//            entity.setOpeningName(o.name());
+//            entity.setOpeningEco(o.eco());
+//            return o;
+//        });
+//
+//        return entity;
+//    }
 
     private Map<String, Integer> calculateResults(List<GameEntity> games) {
         // Разделяем игры по цветам для детального расчета

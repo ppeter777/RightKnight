@@ -1,8 +1,10 @@
 package dev.rightknight.controller;
 
 import dev.rightknight.calc.Performance;
+import dev.rightknight.model.AppUserEntity;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
+import dev.rightknight.service.GameSyncService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -25,6 +27,9 @@ public class TemplateController {
 
     @Autowired
     CurrentUserService currentUserService;
+
+    @Autowired
+    GameSyncService gameSyncService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model) {
@@ -58,6 +63,11 @@ public class TemplateController {
         var zFrom = from.atStartOfDay(java.time.ZoneId.systemDefault());
         var zUntil = until.atTime(23, 59, 59).atZone(java.time.ZoneId.systemDefault());
 
+        currentUserService.getCurrentUser(authentication)
+                .filter(user -> user.getLichessUsername() != null)
+                .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
+                .ifPresent(gameSyncService::ensureRecentGames);
+
         // Передаем mode и rated в расчет
         var result = performance.performanceCalc(player, zFrom, zUntil, mode, rated);
 
@@ -73,50 +83,65 @@ public class TemplateController {
     }
 
     @GetMapping("/games")
-public String showGames(
-        @RequestParam(required = false) String search,
-        @RequestParam(required = false, defaultValue = "all") String side,
-        Authentication authentication,
-        Model model) {
+    public String showGames(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "all") String side,
+            Authentication authentication,
+            Model model) {
 
-    var lichessUsername = currentUserService
-            .getCurrentUser(authentication)
-            .map(user -> user.getLichessUsername())
-            .orElse(null);
+        var currentUser = currentUserService.getCurrentUser(authentication);
 
-    if (lichessUsername == null) {
-        model.addAttribute("games", List.of());
+        if (currentUser.isEmpty() ||
+                currentUser.get().getLichessUsername() == null ||
+                currentUser.get().getLichessUsername().isBlank()) {
+            model.addAttribute("games", List.of());
+            return "pages/games";
+        }
+
+        AppUserEntity appUser = currentUser.get();
+        gameSyncService.ensureRecentGames(appUser);
+
+        var lichessUsername = appUser.getLichessUsername();
+
+
+//    var lichessUsername = currentUserService
+//            .getCurrentUser(authentication)
+//            .map(user -> user.getLichessUsername())
+//            .orElse(null);
+
+        if (lichessUsername == null) {
+            model.addAttribute("games", List.of());
+            return "pages/games";
+        }
+
+        List<GameEntity> games;
+
+        if (search != null && !search.isBlank()) {
+            games = gameRepository
+                    .findByUserIdAndOpeningNameContainingIgnoreCase(
+                            lichessUsername,
+                            search
+                    );
+        } else {
+            games = gameRepository
+                    .findTop50ByUserIdOrderByCreatedAtDesc(
+                            lichessUsername
+                    );
+        }
+
+        if (!"all".equals(side)) {
+            boolean lookForWhite = "white".equals(side);
+
+            games = games.stream()
+                    .filter(g -> g.isWhite() == lookForWhite)
+                    .toList();
+        }
+
+        model.addAttribute("games", games);
+        model.addAttribute("search", search);
+        model.addAttribute("side", side);
+
         return "pages/games";
     }
-
-    List<GameEntity> games;
-
-    if (search != null && !search.isBlank()) {
-        games = gameRepository
-                .findByUserIdAndOpeningNameContainingIgnoreCase(
-                        lichessUsername,
-                        search
-                );
-    } else {
-        games = gameRepository
-                .findTop50ByUserIdOrderByCreatedAtDesc(
-                        lichessUsername
-                );
-    }
-
-    if (!"all".equals(side)) {
-        boolean lookForWhite = "white".equals(side);
-
-        games = games.stream()
-                .filter(g -> g.isWhite() == lookForWhite)
-                .toList();
-    }
-
-    model.addAttribute("games", games);
-    model.addAttribute("search", search);
-    model.addAttribute("side", side);
-
-    return "pages/games";
-}
 
 }
