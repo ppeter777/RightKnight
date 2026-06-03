@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import java.util.Locale;
 
 @Controller
 public class ProfileController {
@@ -62,6 +63,8 @@ public class ProfileController {
             return null;
         }
 
-        return value.trim();
+        return value
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 }

@@ -48,6 +48,9 @@
                                name="lichessUsername"
                                type="text"
                                class="form-control"
+                               autocomplete="off"
+                               autocapitalize="none"
+                               spellcheck="false"
                                value="${lichessUsername == null ? "" : lichessUsername}"
                                required>
                     </div>
@@ -73,5 +76,6 @@
             @endif
         </div>
     </div>
+    <script src="/js/home.js"></script>
     `
 )
