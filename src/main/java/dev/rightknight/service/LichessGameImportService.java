@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Service
-public class LichessGameImportService {
+public class LichessGameImportService implements GameImportService {
 
     private static final Logger log = LoggerFactory.getLogger(LichessGameImportService.class);
 
@@ -24,6 +24,7 @@ public class LichessGameImportService {
         this.gameRepository = gameRepository;
     }
 
+    @Override
     public int importGames(AppUserEntity appUser, ZonedDateTime from, ZonedDateTime until) {
         String lichessUsername = normalize(appUser.getLichessUsername());
 

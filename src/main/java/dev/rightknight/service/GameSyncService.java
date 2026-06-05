@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Locale;
+import java.time.Clock;
 
 @Service
 public class GameSyncService {
@@ -21,25 +22,27 @@ public class GameSyncService {
 
     private final GameSyncStateRepository gameSyncStateRepository;
     private final GameRepository gameRepository;
-    private final LichessGameImportService lichessGameImportService;
+    private final GameImportService gameImportService;
+    private final Clock clock;
 
     public GameSyncService(
             GameSyncStateRepository gameSyncStateRepository,
             GameRepository gameRepository,
-            LichessGameImportService lichessGameImportService
+            GameImportService gameImportService,
+            Clock clock
     ) {
         this.gameSyncStateRepository = gameSyncStateRepository;
         this.gameRepository = gameRepository;
-        this.lichessGameImportService = lichessGameImportService;
+        this.gameImportService = gameImportService;
+        this.clock = clock;
     }
 
     public void ensureRecentGames(AppUserEntity appUser) {
         if (appUser.getLichessUsername() == null || appUser.getLichessUsername().isBlank()) {
             return;
         }
-
         String lichessUsername = normalize(appUser.getLichessUsername());
-        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime now = ZonedDateTime.now(clock);
 
         GameSyncStateEntity state = gameSyncStateRepository
                 .findByAppUser(appUser)
@@ -72,7 +75,7 @@ public class GameSyncService {
             ZonedDateTime from = calculateSyncFrom(lichessUsername, now);
             ZonedDateTime until = now;
 
-            int importedGames = lichessGameImportService.importGames(appUser, from, until);
+            int importedGames = gameImportService.importGames(appUser, from, until);
 
             var newestGame = gameRepository.findFirstByUserIdIgnoreCaseOrderByCreatedAtDesc(lichessUsername);
 
@@ -82,7 +85,7 @@ public class GameSyncService {
             });
 
             state.setSyncFrom(now.minusYears(1));
-            state.setLastSuccessAt(ZonedDateTime.now());
+            state.setLastSuccessAt(ZonedDateTime.now(clock));
             state.setStatus("IDLE");
             gameSyncStateRepository.save(state);
 
