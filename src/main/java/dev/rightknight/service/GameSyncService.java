@@ -2,6 +2,8 @@ package dev.rightknight.service;
 
 import dev.rightknight.model.AppUserEntity;
 import dev.rightknight.model.GameSyncStateEntity;
+import dev.rightknight.model.GameImportRangeEntity;
+import dev.rightknight.repository.GameImportRangeRepository;
 import dev.rightknight.repository.GameRepository;
 import dev.rightknight.repository.GameSyncStateRepository;
 import org.slf4j.Logger;
@@ -25,16 +27,20 @@ public class GameSyncService {
     private final GameImportService gameImportService;
     private final Clock clock;
 
+    private final GameImportRangeRepository gameImportRangeRepository;
+
     public GameSyncService(
             GameSyncStateRepository gameSyncStateRepository,
             GameRepository gameRepository,
             GameImportService gameImportService,
-            Clock clock
+            Clock clock,
+            GameImportRangeRepository gameImportRangeRepository
     ) {
         this.gameSyncStateRepository = gameSyncStateRepository;
         this.gameRepository = gameRepository;
         this.gameImportService = gameImportService;
         this.clock = clock;
+        this.gameImportRangeRepository = gameImportRangeRepository;
     }
 
     private void sync(
@@ -147,5 +153,53 @@ public class GameSyncService {
 
     private String normalize(String value) {
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public void syncPeriodNow(AppUserEntity appUser, ZonedDateTime from, ZonedDateTime until) {
+        if (appUser.getLichessUsername() == null || appUser.getLichessUsername().isBlank()) {
+            return;
+        }
+
+        String lichessUsername = normalize(appUser.getLichessUsername());
+
+        boolean alreadyCovered = gameImportRangeRepository
+                .existsByAppUserAndStatusAndRangeFromLessThanEqualAndRangeUntilGreaterThanEqual(
+                        appUser,
+                        "SUCCESS",
+                        from,
+                        until
+                );
+
+        if (alreadyCovered) {
+            return;
+        }
+
+        var range = new GameImportRangeEntity();
+        range.setAppUser(appUser);
+        range.setLichessUsername(lichessUsername);
+        range.setRangeFrom(from);
+        range.setRangeUntil(until);
+        range.setStatus("RUNNING");
+
+        gameImportRangeRepository.save(range);
+
+        try {
+            int importedGames = gameImportService.importGames(
+                    appUser,
+                    from.minusDays(1),
+                    until
+            );
+
+            range.setStatus("SUCCESS");
+            range.setGamesImported(importedGames);
+            range.setLastError(null);
+            gameImportRangeRepository.save(range);
+        } catch (Exception e) {
+            range.setStatus("FAILED");
+            range.setLastError(e.getMessage());
+            gameImportRangeRepository.save(range);
+
+            throw e;
+        }
     }
 }

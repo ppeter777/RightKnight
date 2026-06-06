@@ -76,10 +76,19 @@ public class TemplateController {
                     }
                 });
 
-        // Передаем mode и rated в расчет
+        currentUserService.getCurrentUser(authentication)
+                .filter(user -> user.getLichessUsername() != null)
+                .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
+                .ifPresent(user -> {
+                    gameSyncService.syncPeriodNow(user, zFrom, zUntil);
+
+                    if (gameSyncService.shouldSync(user)) {
+                        gameSyncWorker.syncUserGames(user.getId());
+                    }
+                });
+
         var result = performance.performanceCalc(player, zFrom, zUntil, mode, rated);
 
-        // Добавляем их в модель, чтобы форма "помнила" выбор
         model.addAttribute("player", player);
         model.addAttribute("mode", mode);
         model.addAttribute("rated", rated);
@@ -112,12 +121,6 @@ public class TemplateController {
         }
 
         var lichessUsername = appUser.getLichessUsername();
-
-
-//    var lichessUsername = currentUserService
-//            .getCurrentUser(authentication)
-//            .map(user -> user.getLichessUsername())
-//            .orElse(null);
 
         if (lichessUsername == null) {
             model.addAttribute("games", List.of());

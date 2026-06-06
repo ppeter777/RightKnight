@@ -5,6 +5,9 @@ import dev.rightknight.model.GameEntity;
 import dev.rightknight.model.GameSyncStateEntity;
 import dev.rightknight.repository.GameRepository;
 import dev.rightknight.repository.GameSyncStateRepository;
+import dev.rightknight.model.GameImportRangeEntity;
+import dev.rightknight.repository.GameImportRangeRepository;
+import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +36,9 @@ class GameSyncServiceTest {
     @Mock
     private GameImportService gameImportService;
 
+    @Mock
+    private GameImportRangeRepository gameImportRangeRepository;
+
     private GameSyncService gameSyncService;
 
     private final Clock fixedClock = Clock.fixed(
@@ -46,7 +52,8 @@ class GameSyncServiceTest {
                 gameSyncStateRepository,
                 gameRepository,
                 gameImportService,
-                fixedClock
+                fixedClock,
+                gameImportRangeRepository
         );
     }
 
@@ -178,6 +185,48 @@ class GameSyncServiceTest {
 
         verifyNoInteractions(gameImportService);
         verifyNoInteractions(gameRepository);
+    }
+
+    @Test
+    void shouldImportSelectedPeriodWhenRangeIsNotCovered() {
+        var user = user("peter777");
+
+        ZonedDateTime from = ZonedDateTime.parse("2026-06-01T00:00:00Z");
+        ZonedDateTime until = ZonedDateTime.parse("2026-06-07T23:59:59Z");
+
+        when(gameImportRangeRepository
+                .existsByAppUserAndStatusAndRangeFromLessThanEqualAndRangeUntilGreaterThanEqual(
+                        user, "SUCCESS", from, until
+                ))
+                .thenReturn(false);
+
+        when(gameImportRangeRepository.save(any(GameImportRangeEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(gameImportService.importGames(user, from.minusDays(1), until))
+                .thenReturn(5);
+
+        gameSyncService.syncPeriodNow(user, from, until);
+
+        verify(gameImportService).importGames(user, from.minusDays(1), until);
+    }
+
+    @Test
+    void shouldNotImportSelectedPeriodWhenRangeIsAlreadyCovered() {
+        var user = user("peter777");
+
+        ZonedDateTime from = ZonedDateTime.parse("2026-06-01T00:00:00Z");
+        ZonedDateTime until = ZonedDateTime.parse("2026-06-07T23:59:59Z");
+
+        when(gameImportRangeRepository
+                .existsByAppUserAndStatusAndRangeFromLessThanEqualAndRangeUntilGreaterThanEqual(
+                        user, "SUCCESS", from, until
+                ))
+                .thenReturn(true);
+
+        gameSyncService.syncPeriodNow(user, from, until);
+
+        verifyNoInteractions(gameImportService);
     }
 
     private AppUserEntity user(String lichessUsername) {
