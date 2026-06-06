@@ -56,7 +56,9 @@ class GameSyncServiceTest {
         user.setId(1L);
         user.setLichessUsername(" ");
 
-        gameSyncService.ensureRecentGames(user);
+        boolean result = gameSyncService.shouldSync(user);
+
+        assertThat(result).isFalse();
 
         verifyNoInteractions(gameSyncStateRepository);
         verifyNoInteractions(gameRepository);
@@ -74,7 +76,7 @@ class GameSyncServiceTest {
                 .thenReturn(Optional.empty());
         when(gameImportService.importGames(any(), any(), any())).thenReturn(10);
 
-        gameSyncService.ensureRecentGames(user);
+        gameSyncService.syncNow(user);
 
         ArgumentCaptor<ZonedDateTime> fromCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
         ArgumentCaptor<ZonedDateTime> untilCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
@@ -101,7 +103,9 @@ class GameSyncServiceTest {
 
         when(gameSyncStateRepository.findByAppUser(user)).thenReturn(Optional.of(state));
 
-        gameSyncService.ensureRecentGames(user);
+        boolean result = gameSyncService.shouldSync(user);
+
+        assertThat(result).isFalse();
 
         verifyNoInteractions(gameImportService);
         verify(gameRepository, never()).findFirstByUserIdIgnoreCaseOrderByCreatedAtDesc(anyString());
@@ -126,7 +130,7 @@ class GameSyncServiceTest {
                 .thenReturn(Optional.of(newestGame));
         when(gameImportService.importGames(any(), any(), any())).thenReturn(3);
 
-        gameSyncService.ensureRecentGames(user);
+        gameSyncService.syncNow(user);
 
         ArgumentCaptor<ZonedDateTime> fromCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
 
@@ -155,11 +159,25 @@ class GameSyncServiceTest {
         when(gameImportService.importGames(any(), any(), any()))
                 .thenThrow(new RuntimeException("Lichess unavailable"));
 
-        gameSyncService.ensureRecentGames(user);
+        gameSyncService.syncNow(user);
 
         assertThat(state.getStatus()).isEqualTo("FAILED");
         assertThat(state.getLastError()).isEqualTo("Lichess unavailable");
         verify(gameSyncStateRepository, atLeastOnce()).save(state);
+    }
+
+    @Test
+    void shouldReturnTrueWhenStateDoesNotExist() {
+        var user = user("peter777");
+
+        when(gameSyncStateRepository.findByAppUser(user)).thenReturn(Optional.empty());
+
+        boolean result = gameSyncService.shouldSync(user);
+
+        assertThat(result).isTrue();
+
+        verifyNoInteractions(gameImportService);
+        verifyNoInteractions(gameRepository);
     }
 
     private AppUserEntity user(String lichessUsername) {

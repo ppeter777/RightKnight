@@ -37,30 +37,6 @@ public class GameSyncService {
         this.clock = clock;
     }
 
-    public void ensureRecentGames(AppUserEntity appUser) {
-        if (appUser.getLichessUsername() == null || appUser.getLichessUsername().isBlank()) {
-            return;
-        }
-        String lichessUsername = normalize(appUser.getLichessUsername());
-        ZonedDateTime now = ZonedDateTime.now(clock);
-
-        GameSyncStateEntity state = gameSyncStateRepository
-                .findByAppUser(appUser)
-                .orElseGet(() -> createInitialState(appUser, lichessUsername, now));
-
-        if ("RUNNING".equals(state.getStatus())) {
-            log.info("Game sync already running: appUserId={}, lichessUsername={}", appUser.getId(), lichessUsername);
-            return;
-        }
-
-        if (state.getLastSuccessAt() != null &&
-                state.getLastSuccessAt().isAfter(now.minus(MIN_SYNC_INTERVAL))) {
-            return;
-        }
-
-        sync(appUser, state, lichessUsername, now);
-    }
-
     private void sync(
             AppUserEntity appUser,
             GameSyncStateEntity state,
@@ -103,6 +79,48 @@ public class GameSyncService {
             state.setLastError(e.getMessage());
             gameSyncStateRepository.save(state);
         }
+    }
+
+    public void syncNow(AppUserEntity appUser) {
+        if (appUser.getLichessUsername() == null || appUser.getLichessUsername().isBlank()) {
+            return;
+        }
+
+        String lichessUsername = normalize(appUser.getLichessUsername());
+        ZonedDateTime now = ZonedDateTime.now(clock);
+
+        GameSyncStateEntity state = gameSyncStateRepository
+                .findByAppUser(appUser)
+                .orElseGet(() -> createInitialState(appUser, lichessUsername, now));
+
+        sync(appUser, state, lichessUsername, now);
+    }
+
+    public boolean shouldSync(AppUserEntity appUser) {
+
+        if (appUser.getLichessUsername() == null ||
+                appUser.getLichessUsername().isBlank()) {
+            return false;
+        }
+
+        var state = gameSyncStateRepository
+                .findByAppUser(appUser)
+                .orElse(null);
+
+        if (state == null) {
+            return true;
+        }
+
+        if ("RUNNING".equals(state.getStatus())) {
+            return false;
+        }
+
+        ZonedDateTime now = ZonedDateTime.now(clock);
+
+        return state.getLastSuccessAt() == null
+                || state.getLastSuccessAt().isBefore(
+                now.minus(MIN_SYNC_INTERVAL)
+        );
     }
 
     private ZonedDateTime calculateSyncFrom(String lichessUsername, ZonedDateTime now) {

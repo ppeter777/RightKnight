@@ -5,6 +5,7 @@ import dev.rightknight.model.AppUserEntity;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
 import dev.rightknight.service.GameSyncService;
+import dev.rightknight.service.GameSyncWorker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -30,6 +31,9 @@ public class TemplateController {
 
     @Autowired
     GameSyncService gameSyncService;
+
+    @Autowired
+    GameSyncWorker gameSyncWorker;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model) {
@@ -66,7 +70,11 @@ public class TemplateController {
         currentUserService.getCurrentUser(authentication)
                 .filter(user -> user.getLichessUsername() != null)
                 .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
-                .ifPresent(gameSyncService::ensureRecentGames);
+                .ifPresent(user -> {
+                    if (gameSyncService.shouldSync(user)) {
+                        gameSyncWorker.syncUserGames(user.getId());
+                    }
+                });
 
         // Передаем mode и rated в расчет
         var result = performance.performanceCalc(player, zFrom, zUntil, mode, rated);
@@ -99,7 +107,9 @@ public class TemplateController {
         }
 
         AppUserEntity appUser = currentUser.get();
-        gameSyncService.ensureRecentGames(appUser);
+        if (gameSyncService.shouldSync(appUser)) {
+            gameSyncWorker.syncUserGames(appUser.getId());
+        }
 
         var lichessUsername = appUser.getLichessUsername();
 
