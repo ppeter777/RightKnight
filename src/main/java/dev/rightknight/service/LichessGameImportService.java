@@ -1,10 +1,11 @@
 package dev.rightknight.service;
 
 import chariot.Client;
-import chariot.model.Game;
 import dev.rightknight.model.AppUserEntity;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.repository.GameRepository;
+import dev.rightknight.service.importer.ImportedGameMapper;
+import dev.rightknight.service.importer.LichessGameConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,18 @@ public class LichessGameImportService implements GameImportService {
 
     private final GameRepository gameRepository;
 
-    public LichessGameImportService(GameRepository gameRepository) {
+    private final ImportedGameMapper importedGameMapper;
+
+    private final LichessGameConverter lichessGameConverter;
+
+    public LichessGameImportService(
+            GameRepository gameRepository,
+            ImportedGameMapper importedGameMapper,
+            LichessGameConverter lichessGameConverter
+    ) {
         this.gameRepository = gameRepository;
+        this.importedGameMapper = importedGameMapper;
+        this.lichessGameConverter = lichessGameConverter;
     }
 
     @Override
@@ -43,7 +54,8 @@ public class LichessGameImportService implements GameImportService {
                         .opening(true)
                 )
                 .stream()
-                .map(game -> mapToEntity(game, appUser, lichessUsername))
+                .map(lichessGameConverter::toImportedGame)
+                .map(importedGame -> importedGameMapper.toEntity(importedGame, appUser, lichessUsername))
                 .toList();
 
         gameRepository.saveAll(games);
@@ -54,59 +66,6 @@ public class LichessGameImportService implements GameImportService {
         );
 
         return games.size();
-    }
-
-    private GameEntity mapToEntity(chariot.model.Game game, AppUserEntity appUser, String normalizedUserId) {
-        var entity = new GameEntity();
-
-        entity.setId(normalizedUserId + ":" + game.id());
-        entity.setUserId(normalizedUserId);
-        entity.setOwner(appUser);
-
-        entity.setCreatedAt(game.createdAt());
-        entity.setMode(game.speed());
-        entity.setRated(game.rated());
-
-        boolean isWhite = game.players().white().name().equalsIgnoreCase(normalizedUserId);
-        entity.setWhite(isWhite);
-
-        var userPlayer = isWhite ? game.players().white() : game.players().black();
-        if (userPlayer instanceof chariot.model.Player.Account account) {
-            entity.setUserRating(account.rating());
-        }
-
-        var opponent = isWhite ? game.players().black() : game.players().white();
-        entity.setOpponentId(opponent.name());
-
-        if (opponent instanceof chariot.model.Player.Account account) {
-            entity.setOpponentRating(account.rating());
-        } else {
-            entity.setOpponentRating(0);
-        }
-
-        float score = 0.5f;
-        if (game.winner().isPresent()) {
-            boolean whiteWon = game.winner().get().name().equals("white");
-            score = (isWhite == whiteWon) ? 1.0f : 0.0f;
-        }
-        entity.setScore(score);
-
-        game.clock().map(c -> {
-            int minutes = c.initial() / 60;
-            int increment = c.increment();
-            entity.setClockLimit(minutes + "+" + increment);
-            return c;
-        });
-
-        entity.setPgn(game.pgn().orElse(""));
-
-        game.opening().map(opening -> {
-            entity.setOpeningName(opening.name());
-            entity.setOpeningEco(opening.eco());
-            return opening;
-        });
-
-        return entity;
     }
 
     private String normalize(String value) {
