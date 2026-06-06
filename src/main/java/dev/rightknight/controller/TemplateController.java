@@ -35,6 +35,8 @@ public class TemplateController {
     @Autowired
     GameSyncWorker gameSyncWorker;
 
+    private static final long MAX_SYNC_PERIOD_DAYS = 31;
+
     @GetMapping("/")
     public String home(Authentication authentication, Model model) {
         currentUserService.getCurrentUser(authentication)
@@ -80,7 +82,18 @@ public class TemplateController {
                 .filter(user -> user.getLichessUsername() != null)
                 .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
                 .ifPresent(user -> {
-                    gameSyncService.syncPeriodNow(user, zFrom, zUntil);
+                    long days = java.time.Duration.between(zFrom, zUntil).toDays();
+
+                    if (days <= MAX_SYNC_PERIOD_DAYS) {
+                        gameSyncService.syncPeriodNow(user, zFrom, zUntil);
+                        model.addAttribute("syncMessage", "Партии за выбранный период загружены");
+                    } else {
+                        gameSyncWorker.syncUserGamesPeriod(user.getId(), zFrom, zUntil);
+                        model.addAttribute(
+                                "syncMessage",
+                                "Период большой, загрузка партий запущена в фоне. Обновите страницу позже."
+                        );
+                    }
 
                     if (gameSyncService.shouldSync(user)) {
                         gameSyncWorker.syncUserGames(user.getId());

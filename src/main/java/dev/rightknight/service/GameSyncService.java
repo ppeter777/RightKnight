@@ -161,6 +161,10 @@ public class GameSyncService {
         }
 
         String lichessUsername = normalize(appUser.getLichessUsername());
+        log.info(
+                "Period game sync requested: appUserId={}, lichessUsername={}, from={}, until={}",
+                appUser.getId(), lichessUsername, from, until
+        );
 
         boolean alreadyCovered = gameImportRangeRepository
                 .existsByAppUserAndStatusAndRangeFromLessThanEqualAndRangeUntilGreaterThanEqual(
@@ -171,6 +175,10 @@ public class GameSyncService {
                 );
 
         if (alreadyCovered) {
+            log.info(
+                    "Period game sync skipped, range already covered: appUserId={}, lichessUsername={}, from={}, until={}",
+                    appUser.getId(), lichessUsername, from, until
+            );
             return;
         }
 
@@ -184,17 +192,29 @@ public class GameSyncService {
         gameImportRangeRepository.save(range);
 
         try {
+            log.info(
+                    "Period game sync started: appUserId={}, lichessUsername={}, from={}, until={}",
+                    appUser.getId(), lichessUsername, from, until
+            );
             int importedGames = gameImportService.importGames(
                     appUser,
                     from.minusDays(1),
                     until
             );
 
+            log.info(
+                    "Period game sync finished: appUserId={}, lichessUsername={}, from={}, until={}, importedGames={}",
+                    appUser.getId(), lichessUsername, from, until, importedGames
+            );
             range.setStatus("SUCCESS");
             range.setGamesImported(importedGames);
             range.setLastError(null);
             gameImportRangeRepository.save(range);
         } catch (Exception e) {
+            log.warn(
+                    "Period game sync failed: appUserId={}, lichessUsername={}, from={}, until={}, error={}",
+                    appUser.getId(), lichessUsername, from, until, e.getMessage(), e
+            );
             range.setStatus("FAILED");
             range.setLastError(e.getMessage());
             gameImportRangeRepository.save(range);

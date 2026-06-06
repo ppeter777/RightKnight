@@ -12,6 +12,7 @@
 @param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
+@param String syncMessage
 
 @template.layout.main(
     title = "RightKnight - Performance",
@@ -71,7 +72,11 @@
             </form>
         </div>
     </div>
-
+    @if(syncMessage != null)
+        <div class="alert alert-info mt-3">
+            ${syncMessage}
+        </div>
+    @endif
     @if(performanceBoth != null)
         <div class="card shadow-sm">
             <div class="card-body">
