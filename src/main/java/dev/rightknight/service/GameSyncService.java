@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.time.Clock;
+import java.util.Optional;
 
 @Service
 public class GameSyncService {
@@ -235,6 +236,10 @@ public class GameSyncService {
                         from,
                         until
                 );
+    }
+
+    public Optional<GameSyncStateEntity> getSyncState(AppUserEntity appUser) {
+        return gameSyncStateRepository.findByAppUser(appUser);
     }
 
 }

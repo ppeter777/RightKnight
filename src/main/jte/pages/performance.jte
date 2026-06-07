@@ -1,3 +1,4 @@
+@import dev.rightknight.model.GameSyncStateEntity
 @param String player = ""
 @param Integer performanceBoth = null
 @param Integer performanceBlack = null
@@ -12,7 +13,8 @@
 @param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
-@param String syncMessage
+@param String syncMessage = null
+@param GameSyncStateEntity gameSyncState = null
 
 @template.layout.main(
     title = "RightKnight - Performance",
@@ -77,6 +79,19 @@
             ${syncMessage}
         </div>
     @endif
+
+    @if(gameSyncState != null && "RUNNING".equals(gameSyncState.getStatus()))
+        <div class="alert alert-info mt-3">
+            Идёт фоновая загрузка партий с Lichess. Данные могут обновиться через несколько секунд.
+        </div>
+    @endif
+
+    @if(gameSyncState != null && "FAILED".equals(gameSyncState.getStatus()))
+        <div class="alert alert-warning mt-3">
+            Последняя загрузка партий завершилась ошибкой. Попробуйте обновить страницу позже.
+        </div>
+    @endif
+
     @if(performanceBoth != null)
         <div class="card shadow-sm">
             <div class="card-body">

@@ -73,16 +73,8 @@ public class TemplateController {
                 .filter(user -> user.getLichessUsername() != null)
                 .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
                 .ifPresent(user -> {
-                    if (gameSyncService.shouldSync(user)) {
-                        gameSyncWorker.syncUserGames(user.getId());
-                    }
-                });
-
-        currentUserService.getCurrentUser(authentication)
-                .filter(user -> user.getLichessUsername() != null)
-                .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
-                .ifPresent(user -> {
                     boolean periodCovered = gameSyncService.isPeriodCovered(user, zFrom, zUntil);
+                    boolean periodSyncStartedInBackground = false;
 
                     if (!periodCovered) {
                         long days = java.time.Duration.between(zFrom, zUntil).toDays();
@@ -92,6 +84,8 @@ public class TemplateController {
                             model.addAttribute("syncMessage", "Партии за выбранный период загружены");
                         } else {
                             gameSyncWorker.syncUserGamesPeriod(user.getId(), zFrom, zUntil);
+                            periodSyncStartedInBackground = true;
+
                             model.addAttribute(
                                     "syncMessage",
                                     "Период большой, загрузка партий запущена в фоне. Обновите страницу позже."
@@ -99,9 +93,14 @@ public class TemplateController {
                         }
                     }
 
-                    if (gameSyncService.shouldSync(user)) {
+                    if (!periodSyncStartedInBackground && gameSyncService.shouldSync(user)) {
                         gameSyncWorker.syncUserGames(user.getId());
                     }
+
+                    gameSyncService.getSyncState(user)
+                            .ifPresent(syncState ->
+                                    model.addAttribute("gameSyncState", syncState)
+                            );
                 });
 
         var result = performance.performanceCalc(player, zFrom, zUntil, mode, rated);
@@ -133,6 +132,10 @@ public class TemplateController {
         }
 
         AppUserEntity appUser = currentUser.get();
+
+        gameSyncService.getSyncState(appUser)
+                .ifPresent(syncState -> model.addAttribute("gameSyncState", syncState));
+
         if (gameSyncService.shouldSync(appUser)) {
             gameSyncWorker.syncUserGames(appUser.getId());
         }
