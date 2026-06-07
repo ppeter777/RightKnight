@@ -222,4 +222,19 @@ public class GameSyncService {
             throw e;
         }
     }
+
+    public boolean isPeriodCovered(AppUserEntity appUser, ZonedDateTime from, ZonedDateTime until) {
+        if (appUser.getLichessUsername() == null || appUser.getLichessUsername().isBlank()) {
+            return false;
+        }
+
+        return gameImportRangeRepository
+                .existsByAppUserAndStatusAndRangeFromLessThanEqualAndRangeUntilGreaterThanEqual(
+                        appUser,
+                        "SUCCESS",
+                        from,
+                        until
+                );
+    }
+
 }

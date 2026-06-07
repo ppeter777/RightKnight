@@ -73,7 +73,7 @@
         </div>
     </div>
     @if(syncMessage != null)
-        <div class="alert alert-info mt-3">
+        <div id="sync-message" class="alert alert-info mt-3">
             ${syncMessage}
         </div>
     @endif
@@ -126,4 +126,5 @@
             text.text('Calculating...');
         });
     </script>
+    <script src="/js/performance.js"></script>
 `)

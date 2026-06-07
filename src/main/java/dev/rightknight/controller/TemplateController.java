@@ -82,17 +82,21 @@ public class TemplateController {
                 .filter(user -> user.getLichessUsername() != null)
                 .filter(user -> user.getLichessUsername().equalsIgnoreCase(player))
                 .ifPresent(user -> {
-                    long days = java.time.Duration.between(zFrom, zUntil).toDays();
+                    boolean periodCovered = gameSyncService.isPeriodCovered(user, zFrom, zUntil);
 
-                    if (days <= MAX_SYNC_PERIOD_DAYS) {
-                        gameSyncService.syncPeriodNow(user, zFrom, zUntil);
-                        model.addAttribute("syncMessage", "Партии за выбранный период загружены");
-                    } else {
-                        gameSyncWorker.syncUserGamesPeriod(user.getId(), zFrom, zUntil);
-                        model.addAttribute(
-                                "syncMessage",
-                                "Период большой, загрузка партий запущена в фоне. Обновите страницу позже."
-                        );
+                    if (!periodCovered) {
+                        long days = java.time.Duration.between(zFrom, zUntil).toDays();
+
+                        if (days <= MAX_SYNC_PERIOD_DAYS) {
+                            gameSyncService.syncPeriodNow(user, zFrom, zUntil);
+                            model.addAttribute("syncMessage", "Партии за выбранный период загружены");
+                        } else {
+                            gameSyncWorker.syncUserGamesPeriod(user.getId(), zFrom, zUntil);
+                            model.addAttribute(
+                                    "syncMessage",
+                                    "Период большой, загрузка партий запущена в фоне. Обновите страницу позже."
+                            );
+                        }
                     }
 
                     if (gameSyncService.shouldSync(user)) {
