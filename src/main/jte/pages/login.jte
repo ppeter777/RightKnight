@@ -3,8 +3,11 @@
 @param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
+@param boolean isAdmin = false
+@param String requestUri = ""
 
 @template.layout.main(
+    isAdmin = isAdmin,
     title = "RightKnight - Login",
     activePage = "login",
     currentUsername = currentUsername,

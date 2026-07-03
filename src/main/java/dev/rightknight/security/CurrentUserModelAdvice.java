@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
@@ -37,5 +38,27 @@ public class CurrentUserModelAdvice {
     public String csrfToken(HttpServletRequest request) {
         CsrfToken csrfToken = (CsrfToken) request.getAttribute("_csrf");
         return csrfToken == null ? "" : csrfToken.getToken();
+    }
+
+    @ModelAttribute("isAdmin")
+    public boolean isAdmin(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        return authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+    @ModelAttribute
+    public void addGlobalAttributes(Model model,
+                                    HttpServletRequest request,
+                                    Authentication authentication) {
+
+        model.addAttribute("requestUri", request.getRequestURI());
+
+        // остальные атрибуты:
+        // currentUsername
+        // isAdmin
+        // ...
     }
 }

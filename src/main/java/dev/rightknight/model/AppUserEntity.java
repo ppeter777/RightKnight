@@ -3,6 +3,7 @@ package dev.rightknight.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.OffsetDateTime;
 
@@ -42,6 +43,11 @@ public class AppUserEntity {
 
     @Column(name = "lichess_username", length = 50)
     private String lichessUsername;
+
+    @ColumnDefault("'ACTIVE'")
+    @Column(name = "status", length = 15)
+    private String status;
+
 
     @PrePersist
     void prePersist() {

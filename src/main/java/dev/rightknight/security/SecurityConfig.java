@@ -27,6 +27,7 @@ public class SecurityConfig {
                         // Пока не закрываем текущие страницы.
                         // Иначе auth-задача сразу смешается с переработкой логики games/performance.
                         .requestMatchers("/games/**", "/performance/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
 
                         .anyRequest().permitAll()
                 )

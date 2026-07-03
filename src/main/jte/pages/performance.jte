@@ -15,8 +15,11 @@
 @param String csrfToken = ""
 @param String syncMessage = null
 @param GameSyncStateEntity gameSyncState = null
+@param boolean isAdmin = false
+@param String requestUri = ""
 
 @template.layout.main(
+    isAdmin = isAdmin,
     title = "RightKnight - Performance",
     activePage = "performance",
     currentUsername = currentUsername,

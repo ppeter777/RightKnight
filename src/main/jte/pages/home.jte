@@ -4,8 +4,11 @@
 @param String lichessUsername = null
 @param String lichessError = null
 @param String lichessSuccess = null
+@param boolean isAdmin = false
+@param String requestUri = ""
 
 @template.layout.main(
+    isAdmin = isAdmin,
     title = "RightKnight - Dashboard",
     activePage = "home",
     currentUsername = currentUsername,

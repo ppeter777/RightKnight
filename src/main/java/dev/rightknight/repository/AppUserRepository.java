@@ -1,6 +1,7 @@
 package dev.rightknight.repository;
 
 import dev.rightknight.model.AppUserEntity;
+import dev.rightknight.model.UserStatus;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
@@ -18,4 +19,6 @@ public interface AppUserRepository extends CrudRepository<AppUserEntity, Long> {
     boolean existsByEmailIgnoreCase(String email);
 
     boolean existsByLichessUsernameIgnoreCase(String lichessUsername);
+
+    long countByStatus(String status);
 }

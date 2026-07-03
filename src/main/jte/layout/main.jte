@@ -4,6 +4,8 @@
 @param String currentUsername = null
 @param String csrfParameterName = "_csrf"
 @param String csrfToken = ""
+@param boolean isAdmin = false
+@param String requestUri = ""
 
 <!DOCTYPE html>
 <html lang="en">
@@ -57,6 +59,46 @@
                     <li class="nav-item">
                         <a class="nav-link ${activePage.equals("games") ? "active" : ""}" href="/games">Games</a>
                     </li>
+                    @if(isAdmin)
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle ${activePage.startsWith("admin") ? "active" : ""}"
+                               href="#"
+                               role="button"
+                               data-bs-toggle="dropdown"
+                               aria-expanded="false">
+                                Админка
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item ${activePage.equals("admin-dashboard") ? "active" : ""}"
+                                       href="/admin">
+                                        Обзор
+                                    </a>
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item ${activePage.equals("admin-users") ? "active" : ""}"
+                                       href="/admin/users">
+                                        Пользователи
+                                    </a>
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item ${activePage.equals("admin-games") ? "active" : ""}"
+                                       href="/admin/games">
+                                        Партии
+                                    </a>
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item ${activePage.equals("admin-activity") ? "active" : ""}"
+                                       href="/admin/activity">
+                                        Журнал действий
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    @endif
                     <li class="nav-item d-flex align-items-center ms-md-3">
                         @if(currentUsername == null)
                             <a class="nav-link ${activePage.equals("login") ? "active" : ""}" href="/login">
