@@ -25,14 +25,17 @@ public class LichessGameImportService implements GameImportService {
 
     private final LichessGameConverter lichessGameConverter;
 
+    private final GameMoveImportService gameMoveImportService;
+
     public LichessGameImportService(
             GameRepository gameRepository,
             ImportedGameMapper importedGameMapper,
-            LichessGameConverter lichessGameConverter
+            LichessGameConverter lichessGameConverter, GameMoveImportService gameMoveImportService
     ) {
         this.gameRepository = gameRepository;
         this.importedGameMapper = importedGameMapper;
         this.lichessGameConverter = lichessGameConverter;
+        this.gameMoveImportService = gameMoveImportService;
     }
 
     @Override
@@ -51,6 +54,7 @@ public class LichessGameImportService implements GameImportService {
                         .since(from)
                         .until(until)
                         .pgn(true)
+                        .clocks(true)
                         .opening(true)
                 )
                 .stream()
@@ -59,6 +63,14 @@ public class LichessGameImportService implements GameImportService {
                 .toList();
 
         gameRepository.saveAll(games);
+
+        for (GameEntity game : games) {
+            try {
+                gameMoveImportService.importMoves(game.getId());
+            } catch (Exception e) {
+                log.warn("Failed to import moves for game {}", game.getId(), e);
+            }
+        }
 
         log.info(
                 "Loaded games from Lichess: appUserId={}, lichessUsername={}, games={}",

@@ -22,6 +22,7 @@ configurations {
 
 repositories {
 	mavenCentral()
+	maven(url = "https://jitpack.io")
 }
 
 dependencies {
@@ -41,6 +42,7 @@ dependencies {
 	testRuntimeOnly("com.h2database:h2")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
+	implementation("com.github.bhlangonijr:chesslib:1.3.7")
 }
 
 jte {
