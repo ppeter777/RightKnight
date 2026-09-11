@@ -35,6 +35,7 @@ public class StockfishOutputParserTest {
         assertEquals(5, result.size());
         assertEquals(1, result.getFirst().getRank());
         assertEquals(-268, result.getFirst().getEvalCp());
+        assertEquals("e2f4", result.getFirst().getBestMove());
     }
 
     @Test
@@ -43,6 +44,8 @@ public class StockfishOutputParserTest {
                 Path.of("src/test/resources/stockfish/mate_multipv3.txt"));
         List<EngineCandidate> parserOutput = stockfishOutputParser.parse(output, 5);
         assertEquals(3, parserOutput.size());
+        assertEquals(-3, parserOutput.getFirst().getMateIn());
+        assertEquals("g5h6", parserOutput.getFirst().getBestMove());
     }
 
     @Test
@@ -52,5 +55,7 @@ public class StockfishOutputParserTest {
         List<EngineCandidate> parserOutput = stockfishOutputParser.parse(output, 5);
         assertEquals(5, parserOutput.size());
         assertNull(parserOutput.getFirst().getEvalCp());
+        assertEquals(4, parserOutput.getFirst().getMateIn());
+        assertEquals("f1g2", parserOutput.getFirst().getBestMove());
     }
 }
