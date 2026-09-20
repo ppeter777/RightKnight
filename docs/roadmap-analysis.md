@@ -18,7 +18,7 @@
 ## Stage 2. Engine analysis
 - [ ] GameAnalysis
 - [ ] MoveAnalysis
-- [ ] Интеграция со Stockfish
+- [X] Интеграция со Stockfish
 - [ ] Сохранение оценок
 
 ## Stage 3. Position analytics
