@@ -7,6 +7,8 @@ import dev.rightknight.repository.GameMoveRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class MoveAnalysis {
@@ -18,30 +20,44 @@ public class MoveAnalysis {
         GameMoveEntity move = gameMoveRepository.findById(moveId).get();
         return analyzeMove(move);
     }
-
-
+    
     public GameMoveAnalysisEntity analyzeMove(GameMoveEntity move) {
-        GameMoveAnalysisEntity analysis = new GameMoveAnalysisEntity();
 
-        var analysisResultBeforeMove =
+        var analysisBefore =
                 stockfishService.analyze(move.getFenBefore());
 
-        var analysisResultAfterMove =
+        var analysisAfter =
                 stockfishService.analyze(move.getFenAfter());
 
-        var bestBefore = analysisResultBeforeMove.getFirst();
-        var bestAfter = analysisResultAfterMove.getFirst();
+        return analyzeMove(
+                move,
+                analysisBefore,
+                analysisAfter
+        );
+    }
+
+    public GameMoveAnalysisEntity analyzeMove(
+            GameMoveEntity move,
+            List<EngineCandidate> analysisBefore,
+            List<EngineCandidate> analysisAfter) {
+
+        EngineCandidate bestBefore = analysisBefore.getFirst();
+        EngineCandidate bestAfter = analysisAfter.getFirst();
 
         PositionMetrics positionMetrics =
                 positionMetricsCalculator.calculate(move.getFenBefore());
 
+        GameMoveAnalysisEntity analysis = new GameMoveAnalysisEntity();
+
         analysis.setBestEvalCp(bestBefore.getEvalCp());
         analysis.setPlayedMoveEvalCp(flipPerspective(bestAfter.getEvalCp()));
         analysis.setLossCp(calculateLossCp(move, bestBefore, bestAfter));
+
         analysis.setDepth(bestBefore.getDepth());
         analysis.setSelectiveDepth(bestBefore.getSelDepth());
         analysis.setNodes(bestBefore.getNodes());
         analysis.setEngineTimeMs(bestBefore.getTimeMs());
+
         analysis.setLegalMovesCount(positionMetrics.legalMovesCount());
         analysis.setCaptureMovesCount(positionMetrics.captureMovesCount());
         analysis.setCheckMovesCount(positionMetrics.checkMovesCount());
@@ -50,9 +66,10 @@ public class MoveAnalysis {
         return analysis;
     }
 
-    private int calculateLossCp(GameMoveEntity move,
-                                EngineCandidate bestBefore,
-                                EngineCandidate bestAfter) {
+    private int calculateLossCp(
+            GameMoveEntity move,
+            EngineCandidate bestBefore,
+            EngineCandidate bestAfter) {
 
         if (move.getUci().equals(bestBefore.getBestMove())) {
             return 0;
@@ -61,14 +78,10 @@ public class MoveAnalysis {
         int bestMoveEvalCp = bestBefore.getEvalCp();
         int playedMoveEvalCp = flipPerspective(bestAfter.getEvalCp());
 
-        int lossCp = move.isWhiteMove()
-                ? bestMoveEvalCp - playedMoveEvalCp
-                : playedMoveEvalCp - bestMoveEvalCp;
-
-        // Из-за эффекта горизонта и разных деревьев поиска движок может
-        // немного по-разному оценивать один и тот же ход до и после его выполнения.
-        // Для аналитики отрицательную потерю считаем нулевой.
-        return Math.max(lossCp, 0);
+        return Math.max(
+                bestMoveEvalCp - playedMoveEvalCp,
+                0
+        );
     }
 
     private int flipPerspective(int evalCp) {

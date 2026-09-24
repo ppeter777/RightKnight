@@ -15,4 +15,6 @@ public interface GameMoveRepository extends JpaRepository<GameMoveEntity, Long> 
     void deleteByGame_Id(String gameId);
 
     boolean existsByGame_Id(String gameId);
+
+    List<GameMoveEntity> findByGame_IdOrderByPlyAsc(String gameId);
 }
