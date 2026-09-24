@@ -16,10 +16,10 @@
 - [X] Сохранить game_moves
 
 ## Stage 2. Engine analysis
-- [ ] GameAnalysis
-- [ ] MoveAnalysis
+- [X] GameAnalysis
+- [X] MoveAnalysis
 - [X] Интеграция со Stockfish
-- [ ] Сохранение оценок
+- [X] Сохранение оценок
 
 ## Stage 3. Position analytics
 - [ ] Position complexity
