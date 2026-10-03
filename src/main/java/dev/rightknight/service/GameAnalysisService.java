@@ -1,6 +1,8 @@
 package dev.rightknight.service;
 
+import dev.rightknight.engine.EngineAnalysisSettings;
 import dev.rightknight.engine.EngineCandidate;
+import dev.rightknight.engine.StockfishSession;
 import dev.rightknight.model.GameAnalysisEntity;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
@@ -9,6 +11,7 @@ import dev.rightknight.repository.GameAnalysisRepository;
 import dev.rightknight.repository.GameMoveAnalysisRepository;
 import dev.rightknight.repository.GameMoveRepository;
 import dev.rightknight.repository.GameRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -28,52 +31,63 @@ public class GameAnalysisService {
 
     public GameAnalysisEntity analyzeGame(String gameId) {
 
-        GameEntity game = gameRepository.findById(gameId).orElseThrow();
-
-        GameAnalysisEntity gameAnalysis = new GameAnalysisEntity();
-        gameAnalysis.setGame(game);
-        gameAnalysis.setCreatedAt(ZonedDateTime.now());
-
-        gameAnalysis = gameAnalysisRepository.save(gameAnalysis);
-
         var moves = gameMoveRepository.findByGame_IdOrderByPlyAsc(gameId);
 
         if (moves.isEmpty()) {
             return null;
         }
 
-        List<EngineCandidate> analysisBefore =
-                stockfishService.analyze(moves.getFirst().getFenBefore());
+        GameEntity game = gameRepository.findById(gameId).orElseThrow();
 
-        GameMoveEntity previousMove = null;
+        EngineAnalysisSettings settings = stockfishService.defaultSettings();
 
-        for (GameMoveEntity move : moves) {
+        GameAnalysisEntity gameAnalysis = new GameAnalysisEntity();
 
-            if (previousMove != null &&
-                    !previousMove.getFenAfter().equals(move.getFenBefore())) {
-                throw new IllegalStateException(
-                        "Broken move sequence at ply " + move.getPly()
-                );
-            }
+        try (StockfishSession stockfish =
+                     stockfishService.openSession(settings)) {
 
-            List<EngineCandidate> analysisAfter =
-                    stockfishService.analyze(move.getFenAfter());
+            gameAnalysis.setGame(game);
+            gameAnalysis.setCreatedAt(ZonedDateTime.now());
+            gameAnalysis.setEngineName(stockfish.getEngineName());
+            gameAnalysis.setRequestedDepth(settings.depth());
+            gameAnalysis.setMultiPv(settings.multiPv());
+            gameAnalysis.setThreads(settings.threads());
 
-            GameMoveAnalysisEntity moveResult =
-                    moveAnalysis.analyzeMove(
-                            move,
-                            analysisBefore,
-                            analysisAfter
+            gameAnalysisRepository.save(gameAnalysis);
+
+            List<EngineCandidate> analysisBefore =
+                    stockfish.analyze(moves.getFirst().getFenBefore());
+
+            GameMoveEntity previousMove = null;
+
+            for (GameMoveEntity move : moves) {
+
+                if (previousMove != null &&
+                        !previousMove.getFenAfter().equals(move.getFenBefore())) {
+                    throw new IllegalStateException(
+                            "Broken move sequence at ply " + move.getPly()
                     );
+                }
 
-            moveResult.setGameAnalysis(gameAnalysis);
-            moveResult.setGameMove(move);
+                List<EngineCandidate> analysisAfter =
+                        stockfish.analyze(move.getFenAfter());
 
-            gameMoveAnalysisRepository.save(moveResult);
+                GameMoveAnalysisEntity moveResult =
+                        moveAnalysis.analyzeMove(
+                                move,
+                                analysisBefore,
+                                analysisAfter
+                        );
 
-            analysisBefore = analysisAfter;
+                moveResult.setGameAnalysis(gameAnalysis);
+                moveResult.setGameMove(move);
 
-            previousMove = move;
+                gameMoveAnalysisRepository.save(moveResult);
+
+                analysisBefore = analysisAfter;
+
+                previousMove = move;
+            }
         }
 
         gameAnalysis.setCompletedAt(ZonedDateTime.now());

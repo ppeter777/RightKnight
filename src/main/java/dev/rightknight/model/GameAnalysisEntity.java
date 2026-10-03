@@ -21,10 +21,10 @@ public class GameAnalysisEntity {
     private GameEntity game;
 
     private String engineName;
-    private String engineVersion;
 
     private Integer requestedDepth;
     private Integer multiPv;
+    private Integer threads;
 
 //    @Enumerated(EnumType.STRING)
 //    private AnalysisStatus status;

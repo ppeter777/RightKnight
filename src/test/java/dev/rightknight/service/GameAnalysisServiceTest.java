@@ -1,6 +1,8 @@
 package dev.rightknight.service;
 
+import dev.rightknight.engine.EngineAnalysisSettings;
 import dev.rightknight.engine.EngineCandidate;
+import dev.rightknight.engine.StockfishSession;
 import dev.rightknight.model.GameAnalysisEntity;
 import dev.rightknight.model.GameEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
@@ -42,6 +44,9 @@ public class GameAnalysisServiceTest {
     @Mock
     private StockfishService stockfishService;
 
+    @Mock
+    private StockfishSession stockfishSession;
+
     private GameAnalysisService gameAnalysisService;
 
     @BeforeEach
@@ -58,15 +63,28 @@ public class GameAnalysisServiceTest {
 
     @Test
     void analyzeGameReusesAnalysisOfAdjacentPositions() {
+
+        EngineAnalysisSettings settings =
+                new EngineAnalysisSettings(20, 5, 4);
+
         List<EngineCandidate> p0 = List.of(new EngineCandidate());
         List<EngineCandidate> p1 = List.of(new EngineCandidate());
         List<EngineCandidate> p2 = List.of(new EngineCandidate());
         List<EngineCandidate> p3 = List.of(new EngineCandidate());
 
-        when(stockfishService.analyze("P0")).thenReturn(p0);
-        when(stockfishService.analyze("P1")).thenReturn(p1);
-        when(stockfishService.analyze("P2")).thenReturn(p2);
-        when(stockfishService.analyze("P3")).thenReturn(p3);
+        when(stockfishService.defaultSettings())
+                .thenReturn(settings);
+
+        when(stockfishService.openSession(settings))
+                .thenReturn(stockfishSession);
+
+        when(stockfishSession.getEngineName())
+                .thenReturn("Stockfish 18");
+
+        when(stockfishSession.analyze("P0")).thenReturn(p0);
+        when(stockfishSession.analyze("P1")).thenReturn(p1);
+        when(stockfishSession.analyze("P2")).thenReturn(p2);
+        when(stockfishSession.analyze("P3")).thenReturn(p3);
 
         GameMoveEntity move1 = new GameMoveEntity();
         GameMoveEntity move2 = new GameMoveEntity();
@@ -104,17 +122,21 @@ public class GameAnalysisServiceTest {
 
         gameAnalysisService.analyzeGame(gameId);
 
-        verify(stockfishService).analyze("P0");
-        verify(stockfishService).analyze("P1");
-        verify(stockfishService).analyze("P2");
-        verify(stockfishService).analyze("P3");
-
+        verify(stockfishService).defaultSettings();
+        verify(stockfishService).openSession(settings);
         verifyNoMoreInteractions(stockfishService);
+
+        verify(stockfishSession).getEngineName();
+        verify(stockfishSession).analyze("P0");
+        verify(stockfishSession).analyze("P1");
+        verify(stockfishSession).analyze("P2");
+        verify(stockfishSession).analyze("P3");
+
+        verify(stockfishSession).close();
 
         verify(moveAnalysis).analyzeMove(move1, p0, p1);
         verify(moveAnalysis).analyzeMove(move2, p1, p2);
         verify(moveAnalysis).analyzeMove(move3, p2, p3);
-
     }
 
 }

@@ -18,6 +18,21 @@ public class StockfishEngine {
     private Process engineProcess;
     private BufferedReader processReader;
     private OutputStreamWriter processWriter;
+    private String engineName;
+
+    private static final Duration UCI_TIMEOUT = Duration.ofSeconds(5);
+
+    public void initialize() {
+        sendCommand("uci");
+
+        String output = getOutput("uciok", UCI_TIMEOUT);
+
+        engineName = output.lines()
+                .filter(line -> line.startsWith("id name "))
+                .map(line -> line.substring("id name ".length()))
+                .findFirst()
+                .orElse("Stockfish");
+    }
 
     public boolean startEngine(String pathToBinary) {
         try {
@@ -29,7 +44,9 @@ public class StockfishEngine {
             processReader = new BufferedReader(
                     new InputStreamReader(engineProcess.getInputStream())
             );
+
             processWriter = new OutputStreamWriter(engineProcess.getOutputStream());
+
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -68,7 +85,6 @@ public class StockfishEngine {
                         return output.toString();
                     }
                 }
-
                 throw new IllegalStateException(
                         "Stockfish output closed before marker: " + expectedMarker
                 );
@@ -154,5 +170,9 @@ public class StockfishEngine {
             resource.close();
         } catch (Exception ignored) {
         }
+    }
+
+    public String getEngineName() {
+        return engineName;
     }
 }
