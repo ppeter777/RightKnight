@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GameMoveAnalysisRepository
         extends JpaRepository<GameMoveAnalysisEntity, Long> {
+    GameMoveAnalysisEntity findByGameMoveId(Long moveId);
 }

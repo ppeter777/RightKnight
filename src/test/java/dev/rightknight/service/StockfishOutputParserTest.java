@@ -16,10 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class StockfishOutputParserTest {
 
-    @Mock
-    private StockfishService stockfishService;
-
-    @Mock
     private StockfishOutputParser stockfishOutputParser;
 
     @BeforeEach
