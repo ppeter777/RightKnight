@@ -232,4 +232,67 @@ public class MoveAnalysisTest {
         verifyNoInteractions(stockfishService);
     }
 
+
+    @Test
+    void mateEvaluationDoesNotBecomeCpLoss() {
+        GameMoveEntity move = new GameMoveEntity();
+        move.setFenBefore("r3k2r/pppq1ppp/1b1p1n2/4p3/2N1P3/2PP1Q1P/PP3PP1/R1B2RK1 w kq - 0 11");
+        move.setUci("f1e1");
+        EngineCandidate before = new EngineCandidate();
+        before.setPv("c1g5");
+        before.setMateIn(3);
+        EngineCandidate after = new EngineCandidate();
+        after.setMateIn(-5);
+        var result = moveAnalysis.analyzeMove(move, List.of(before), List.of(after));
+        assertEquals(3, result.getBestMateIn());
+        assertEquals(5, result.getPlayedMoveMateIn());
+        org.junit.jupiter.api.Assertions.assertNull(result.getLossCp());
+    }
+
+    @Test
+    void matingMoveAcceptsEmptyPostMoveCandidates() {
+        GameMoveEntity move = new GameMoveEntity();
+        move.setFenBefore("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
+        move.setFenAfter("7k/6Q1/5K2/8/8/8/8/8 b - - 1 1");
+        move.setUci("g6g7");
+        EngineCandidate before = new EngineCandidate();
+        before.setPv("g6g7");
+        before.setMateIn(1);
+        var result = moveAnalysis.analyzeMove(move, List.of(before), List.of());
+        assertEquals(1, result.getBestMateIn());
+        assertEquals(0, result.getPlayedMoveMateIn());
+        assertEquals(0, result.getLossCp());
+    }
+
+    @Test
+    void stalemateHasZeroEvaluationAndMissingNonTerminalAnalysisFails() {
+        GameMoveEntity move = new GameMoveEntity();
+        move.setFenBefore("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
+        move.setFenAfter("7k/5Q2/5K2/8/8/8/8/8 b - - 1 1");
+        move.setUci("g6f7");
+        EngineCandidate before = new EngineCandidate();
+        before.setPv("g6g7");
+        before.setEvalCp(900);
+        var result = moveAnalysis.analyzeMove(move, List.of(before), List.of());
+        assertEquals(0, result.getPlayedMoveEvalCp());
+        assertEquals(900, result.getLossCp());
+        move.setFenAfter(move.getFenBefore());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> moveAnalysis.analyzeMove(move, List.of(before), List.of()));
+    }
+
+    @Test
+    void boundedScoreDoesNotBecomeExactCpLoss() {
+        GameMoveEntity move = new GameMoveEntity();
+        move.setFenBefore("r3k2r/pppq1ppp/1b1p1n2/4p3/2N1P3/2PP1Q1P/PP3PP1/R1B2RK1 w kq - 0 11");
+        move.setUci("f1e1");
+        EngineCandidate before = new EngineCandidate();
+        before.setPv("c1g5");
+        before.setEvalCp(130);
+        before.setScoreBound(dev.rightknight.engine.ScoreBound.LOWER);
+        EngineCandidate after = new EngineCandidate();
+        after.setEvalCp(-50);
+        org.junit.jupiter.api.Assertions.assertNull(
+                moveAnalysis.analyzeMove(move, List.of(before), List.of(after)).getLossCp());
+    }
 }

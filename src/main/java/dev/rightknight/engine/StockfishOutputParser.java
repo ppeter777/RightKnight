@@ -3,60 +3,55 @@ package dev.rightknight.engine;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.stream.IntStream;
 
 @Component
 public class StockfishOutputParser {
 
-    public List<EngineCandidate> parse(String engineOut, int multiPv) {
+    /** expectedCandidates is min(requested MultiPV, legal root moves). */
+    public List<EngineCandidate> parse(String engineOut, int expectedCandidates) {
+        if (expectedCandidates < 0) {
+            throw new IllegalArgumentException("Negative candidate count");
+        }
+        if (expectedCandidates == 0) {
+            return List.of();
+        }
 
-        List<EngineCandidate> output = new ArrayList<>();
-
-        String[] lines = engineOut.split("\n");
-
-        Set<Integer> seenMultiPv = new HashSet<>();
-
-        for (int i = lines.length - 1; i >= 0; i--) {
-
-            String line = lines[i];
-
-            if (!line.startsWith("info")) {
+        List<EngineCandidate> latestComplete = List.of();
+        List<EngineCandidate> current = new ArrayList<>();
+        for (String rawLine : engineOut.split("\\R")) {
+            String line = rawLine.strip();
+            if (!line.startsWith("info ") || !line.contains(" pv ")
+                    || !line.contains(" score ") || !line.contains(" depth ")) {
                 continue;
             }
-
-            int multiPvLine = extractMultiPv(line);
-
-            if (multiPvLine < 0) {
+            EngineCandidate candidate = parseLine(line);
+            if (candidate.getRank() == 1) {
+                current.clear();
+            }
+            if (candidate.getRank() != current.size() + 1
+                    || candidate.getRank() > expectedCandidates
+                    || (candidate.getEvalCp() == null) == (candidate.getMateIn() == null)
+                    || candidate.getBestMove() == null
+                    || (!current.isEmpty() && candidate.getDepth() != current.getFirst().getDepth())
+                    || current.stream().anyMatch(c -> c.getBestMove().equals(candidate.getBestMove()))) {
+                current.clear();
                 continue;
             }
-
-            if (!seenMultiPv.add(multiPvLine)) {
-                break;
-            }
-
-            output.add(parseLine(line));
-
-            if (seenMultiPv.size() == multiPv) {
-                break;
+            current.add(candidate);
+            if (current.size() == expectedCandidates) {
+                latestComplete = List.copyOf(current);
             }
         }
-        return output.reversed();
+        if (latestComplete.isEmpty()) {
+            throw new IllegalStateException("No complete MultiPV set of " + expectedCandidates + " candidates");
+        }
+        return latestComplete;
     }
-
-    private int extractMultiPv(String line) {
-        String[] tokens = line.split("\\s+");
-        return IntStream.range(0, tokens.length - 1)
-                .filter(i -> tokens[i].equals("multipv"))
-                .mapToObj(i -> tokens[i + 1])
-                .mapToInt(Integer::parseInt)
-                .findFirst()
-                .orElse(-1);
-    }
-
 
     private EngineCandidate parseLine(String line) {
         String[] tokens = line.split("\\s+");
         EngineCandidate candidate = new EngineCandidate();
+        candidate.setRank(1); // UCI may omit multipv for a single variation.
         for (int i = 0; i < tokens.length; i++) {
 
             switch (tokens[i]) {
@@ -71,13 +66,17 @@ public class StockfishOutputParser {
 
                 case "mate" -> candidate.setMateIn(Integer.parseInt(tokens[++i]));
 
-                case "nodes" -> candidate.setNodes(Integer.parseInt(tokens[++i]));
+                case "lowerbound" -> candidate.setScoreBound(ScoreBound.LOWER);
 
-                case "nps" -> candidate.setNps(Integer.parseInt(tokens[++i]));
+                case "upperbound" -> candidate.setScoreBound(ScoreBound.UPPER);
+
+                case "nodes" -> candidate.setNodes(Long.parseLong(tokens[++i]));
+
+                case "nps" -> candidate.setNps(Long.parseLong(tokens[++i]));
 
                 case "hashfull" -> candidate.setHashfull(Integer.parseInt(tokens[++i]));
 
-                case "time" -> candidate.setTimeMs(Integer.parseInt(tokens[++i]));
+                case "time" -> candidate.setTimeMs(Long.parseLong(tokens[++i]));
 
                 case "pv" -> {
                     // После PV до конца строки идут только ходы варианта.

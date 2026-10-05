@@ -12,9 +12,7 @@ public class MoveQualityClassifier {
             GameMoveAnalysisEntity analysis,
             Long expectedMoveTimeMs) {
 
-        int lossCp = analysis.getLossCp() != null
-                ? analysis.getLossCp()
-                : 0;
+        Integer lossCp = analysis.getLossCp();
 
         long moveTimeMs = move.getMoveTimeMs() != null
                 ? move.getMoveTimeMs()
@@ -33,7 +31,10 @@ public class MoveQualityClassifier {
         );
     }
 
-    private LossCategory classifyLoss(int lossCp) {
+    private LossCategory classifyLoss(Integer lossCp) {
+        if (lossCp == null) {
+            return LossCategory.UNKNOWN;
+        }
         if (lossCp < 20) {
             return LossCategory.NEGLIGIBLE;
         }

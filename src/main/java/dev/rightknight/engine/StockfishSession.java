@@ -1,5 +1,7 @@
 package dev.rightknight.engine;
 
+import com.github.bhlangonijr.chesslib.Board;
+
 import java.time.Duration;
 import java.util.List;
 
@@ -47,6 +49,10 @@ public class StockfishSession implements AutoCloseable {
 
     public List<EngineCandidate> analyze(String fen) {
 
+        Board board = new Board();
+        board.loadFromFen(fen);
+        int expectedCandidates = Math.min(settings.multiPv(), board.legalMoves().size());
+
         engine.sendCommand("position fen " + fen);
         engine.sendCommand("go depth " + settings.depth());
 
@@ -55,7 +61,7 @@ public class StockfishSession implements AutoCloseable {
 
         return parser.parse(
                 engineOutput,
-                settings.multiPv()
+                expectedCandidates
         );
     }
 }

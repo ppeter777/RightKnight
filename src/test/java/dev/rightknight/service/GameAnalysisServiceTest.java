@@ -8,7 +8,6 @@ import dev.rightknight.model.GameEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
 import dev.rightknight.model.GameMoveEntity;
 import dev.rightknight.repository.GameAnalysisRepository;
-import dev.rightknight.repository.GameMoveAnalysisRepository;
 import dev.rightknight.repository.GameMoveRepository;
 import dev.rightknight.repository.GameRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +35,7 @@ public class GameAnalysisServiceTest {
     private GameAnalysisRepository gameAnalysisRepository;
 
     @Mock
-    private GameMoveAnalysisRepository gameMoveAnalysisRepository;
+    private MoveAnalysisPersistenceService moveAnalysisPersistenceService;
 
     @Mock
     private MoveAnalysis moveAnalysis;
@@ -55,7 +54,7 @@ public class GameAnalysisServiceTest {
                 gameRepository,
                 gameMoveRepository,
                 gameAnalysisRepository,
-                gameMoveAnalysisRepository,
+                moveAnalysisPersistenceService,
                 moveAnalysis,
                 stockfishService
         );
@@ -117,7 +116,7 @@ public class GameAnalysisServiceTest {
         when(gameAnalysisRepository.save(any(GameAnalysisEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        when(gameMoveAnalysisRepository.save(any(GameMoveAnalysisEntity.class)))
+        when(moveAnalysisPersistenceService.save(any(GameMoveAnalysisEntity.class), anyList()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         gameAnalysisService.analyzeGame(gameId);
@@ -137,6 +136,10 @@ public class GameAnalysisServiceTest {
         verify(moveAnalysis).analyzeMove(move1, p0, p1);
         verify(moveAnalysis).analyzeMove(move2, p1, p2);
         verify(moveAnalysis).analyzeMove(move3, p2, p3);
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p0));
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p1));
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p2));
+        verifyNoMoreInteractions(moveAnalysisPersistenceService);
     }
 
 }

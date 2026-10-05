@@ -85,4 +85,11 @@ public class MoveAssessmentTest {
 
     }
 
+    @Test
+    void missingCpLossIsUnknownRatherThanNegligible() {
+        var assessment = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, 1000L);
+        assertEquals(LossCategory.UNKNOWN, assessment.lossCategory());
+        org.junit.jupiter.api.Assertions.assertNull(assessment.lossCp());
+    }
+
 }

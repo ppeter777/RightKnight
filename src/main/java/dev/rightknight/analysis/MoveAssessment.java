@@ -1,7 +1,7 @@
 package dev.rightknight.analysis;
 
 public record MoveAssessment(
-        int lossCp,
+        Integer lossCp,
         LossCategory lossCategory,
         long moveTimeMs,
         double expectedMoveTimeMs,
