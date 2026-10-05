@@ -12,6 +12,7 @@ public class EngineCandidate {
     private int selDepth;
     private Integer evalCp;
     private Integer mateIn;
+    private ScoreBound scoreBound = ScoreBound.EXACT;
     private long nodes;
     private long nps;
     private int hashfull;

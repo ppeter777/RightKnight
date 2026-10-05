@@ -8,10 +8,8 @@ import dev.rightknight.model.GameEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
 import dev.rightknight.model.GameMoveEntity;
 import dev.rightknight.repository.GameAnalysisRepository;
-import dev.rightknight.repository.GameMoveAnalysisRepository;
 import dev.rightknight.repository.GameMoveRepository;
 import dev.rightknight.repository.GameRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +23,7 @@ public class GameAnalysisService {
     private final GameRepository gameRepository;
     private final GameMoveRepository gameMoveRepository;
     private final GameAnalysisRepository gameAnalysisRepository;
-    private final GameMoveAnalysisRepository gameMoveAnalysisRepository;
+    private final MoveAnalysisPersistenceService moveAnalysisPersistenceService;
     private final MoveAnalysis moveAnalysis;
     private final StockfishService stockfishService;
 
@@ -82,7 +80,7 @@ public class GameAnalysisService {
                 moveResult.setGameAnalysis(gameAnalysis);
                 moveResult.setGameMove(move);
 
-                gameMoveAnalysisRepository.save(moveResult);
+                moveAnalysisPersistenceService.save(moveResult, analysisBefore);
 
                 analysisBefore = analysisAfter;
 

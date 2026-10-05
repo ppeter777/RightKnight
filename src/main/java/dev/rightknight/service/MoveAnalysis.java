@@ -1,6 +1,8 @@
 package dev.rightknight.service;
 
+import com.github.bhlangonijr.chesslib.Board;
 import dev.rightknight.engine.EngineCandidate;
+import dev.rightknight.engine.ScoreBound;
 import dev.rightknight.model.GameMoveAnalysisEntity;
 import dev.rightknight.model.GameMoveEntity;
 import dev.rightknight.repository.GameMoveRepository;
@@ -42,7 +44,8 @@ public class MoveAnalysis {
             List<EngineCandidate> analysisAfter) {
 
         EngineCandidate bestBefore = analysisBefore.getFirst();
-        EngineCandidate bestAfter = analysisAfter.getFirst();
+        EngineCandidate bestAfter = analysisAfter.isEmpty()
+                ? terminalEvaluation(move.getFenAfter()) : analysisAfter.getFirst();
 
         PositionMetrics positionMetrics =
                 positionMetricsCalculator.calculate(move.getFenBefore());
@@ -50,6 +53,8 @@ public class MoveAnalysis {
         GameMoveAnalysisEntity analysis = new GameMoveAnalysisEntity();
 
         analysis.setBestEvalCp(bestBefore.getEvalCp());
+        analysis.setBestMateIn(bestBefore.getMateIn());
+        analysis.setPlayedMoveMateIn(flipPerspective(bestAfter.getMateIn()));
         analysis.setPlayedMoveEvalCp(flipPerspective(bestAfter.getEvalCp()));
         analysis.setLossCp(calculateLossCp(move, bestBefore, bestAfter));
 
@@ -66,13 +71,19 @@ public class MoveAnalysis {
         return analysis;
     }
 
-    private int calculateLossCp(
+    private Integer calculateLossCp(
             GameMoveEntity move,
             EngineCandidate bestBefore,
             EngineCandidate bestAfter) {
 
         if (move.getUci().equals(bestBefore.getBestMove())) {
             return 0;
+        }
+
+        if (bestBefore.getEvalCp() == null || bestAfter.getEvalCp() == null
+                || bestBefore.getScoreBound() != ScoreBound.EXACT
+                || bestAfter.getScoreBound() != ScoreBound.EXACT) {
+            return null;
         }
 
         int bestMoveEvalCp = bestBefore.getEvalCp();
@@ -84,7 +95,22 @@ public class MoveAnalysis {
         );
     }
 
-    private int flipPerspective(int evalCp) {
-        return -evalCp;
+    private Integer flipPerspective(Integer score) {
+        return score == null ? null : -score;
+    }
+
+    private EngineCandidate terminalEvaluation(String fen) {
+        Board board = new Board();
+        board.loadFromFen(fen);
+        if (!board.legalMoves().isEmpty()) {
+            throw new IllegalStateException("Missing analysis for a non-terminal position");
+        }
+        EngineCandidate result = new EngineCandidate();
+        if (board.isKingAttacked()) {
+            result.setMateIn(0);
+        } else {
+            result.setEvalCp(0);
+        }
+        return result;
     }
 }
