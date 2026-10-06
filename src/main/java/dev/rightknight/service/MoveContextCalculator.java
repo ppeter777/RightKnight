@@ -1,6 +1,7 @@
 package dev.rightknight.service;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
 import dev.rightknight.model.GameMoveEntity;
@@ -43,7 +44,17 @@ public class MoveContextCalculator {
             if (Boolean.TRUE.equals(recapture)) {
                 recaptures++;
             }
-            features.put(candidate.toString(), new CandidateMoveFeatures(capture, recapture));
+            boolean promotion = candidate.getPromotion() != Piece.NONE;
+            board.doMove(candidate);
+            boolean givesCheck;
+            try {
+                // After the move, side to move is the opponent.
+                givesCheck = board.isKingAttacked();
+            } finally {
+                board.undoMove();
+            }
+            features.put(candidate.toString(),
+                    new CandidateMoveFeatures(capture, recapture, givesCheck, promotion));
         }
         return new MoveContext(previousCapture, previousCapture == null ? null : recaptures, features);
     }

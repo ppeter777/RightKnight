@@ -92,3 +92,16 @@ existing FENs and moves is possible but is not implemented here.
 
 These are descriptive features, not complexity scores: neither recapture nor
 being in check implies that a human decision is easy or hard.
+
+## Candidate check and promotion (V15)
+
+Each candidate additionally stores `gives_check` and `promotion` for its first
+move. `gives_check` tests the opponent's king after making the legal candidate
+move, including discovered checks, en passant, castling and mating moves. The
+board is restored before the next candidate. `promotion` is true for any pawn
+promotion (Q/R/B/N), with or without a capture or check.
+
+Both features are computed from `fenBefore`, without Stockfish or prior history.
+They are independent of the position's `in_check` flag. V15 adds nullable columns
+without defaults/backfill: existing candidates retain NULL, new analysis stores
+true/false. No complexity or sacrifice classification is introduced.

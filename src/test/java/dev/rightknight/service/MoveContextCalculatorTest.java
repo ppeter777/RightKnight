@@ -17,7 +17,7 @@ class MoveContextCalculatorTest {
         var context = calculator.calculate(first, null);
         assertEquals(false, context.previousMoveCapture());
         assertEquals(0, context.recaptureMovesCount());
-        assertEquals(new CandidateMoveFeatures(false, false), context.legalMoveFeatures().get("e2e4"));
+        assertCaptureFeatures(false, false, context.legalMoveFeatures().get("e2e4"));
         var unknown = calculator.calculate(current(INITIAL, 3), null);
         assertNull(unknown.previousMoveCapture());
         assertNull(unknown.recaptureMovesCount());
@@ -28,9 +28,9 @@ class MoveContextCalculatorTest {
     void realGameReplyToBxe2IsARecapture() {
         var context = after("2r2rk1/pp2bppp/1q2p2n/1b1pP3/3P2P1/2B2N1P/PPRQBP2/2R3K1 b - - 2 19", "b5e2");
         assertEquals(true, context.previousMoveCapture());
-        assertEquals(new CandidateMoveFeatures(true, true), context.legalMoveFeatures().get("d2e2"));
+        assertCaptureFeatures(true, true, context.legalMoveFeatures().get("d2e2"));
         assertEquals(1, context.recaptureMovesCount());
-        assertEquals(new CandidateMoveFeatures(false, false), context.legalMoveFeatures().get("c3a5"));
+        assertCaptureFeatures(false, false, context.legalMoveFeatures().get("c3a5"));
     }
 
     @Test
@@ -46,14 +46,14 @@ class MoveContextCalculatorTest {
         var context = after("2R3k1/pp2bnpp/3qpr2/B2p4/3P2P1/1N5P/PP2QP2/6K1 b - - 2 27", "f7d8");
         assertEquals(false, context.previousMoveCapture());
         assertEquals(0, context.recaptureMovesCount());
-        assertEquals(new CandidateMoveFeatures(true, false), context.legalMoveFeatures().get("a5d8"));
+        assertCaptureFeatures(true, false, context.legalMoveFeatures().get("a5d8"));
     }
 
     @Test
     void enPassantIsCaptureButKnightMovingToEnPassantSquareIsNot() {
         var context = after("7k/3p4/8/4PN2/8/8/8/K7 b - - 0 1", "d7d5");
-        assertEquals(new CandidateMoveFeatures(true, false), context.legalMoveFeatures().get("e5d6"));
-        assertEquals(new CandidateMoveFeatures(false, false), context.legalMoveFeatures().get("f5d6"));
+        assertCaptureFeatures(true, false, context.legalMoveFeatures().get("e5d6"));
+        assertCaptureFeatures(false, false, context.legalMoveFeatures().get("f5d6"));
         assertEquals(0, context.recaptureMovesCount());
     }
 
@@ -62,17 +62,17 @@ class MoveContextCalculatorTest {
         var context = after("7k/2b5/8/3pP3/8/8/8/K7 w - d6 0 1", "e5d6");
         assertEquals(true, context.previousMoveCapture());
         assertEquals(1, context.recaptureMovesCount());
-        assertEquals(new CandidateMoveFeatures(true, true), context.legalMoveFeatures().get("c7d6"));
+        assertCaptureFeatures(true, true, context.legalMoveFeatures().get("c7d6"));
     }
 
     @Test
     void handlesPreviousCapturePromotionAndAllFourRecapturePromotions() {
         var promoted = after("k6r/6Pr/8/8/8/8/8/K7 w - - 0 1", "g7h8q");
-        assertEquals(new CandidateMoveFeatures(true, true), promoted.legalMoveFeatures().get("h7h8"));
+        assertCaptureFeatures(true, true, promoted.legalMoveFeatures().get("h7h8"));
         var replies = after("r6N/6P1/k7/8/8/8/8/K7 b - - 0 1", "a8h8");
         assertEquals(4, replies.recaptureMovesCount());
         for (String promotion : new String[]{"q", "r", "b", "n"}) {
-            assertEquals(new CandidateMoveFeatures(true, true), replies.legalMoveFeatures().get("g7h8" + promotion));
+            assertCaptureFeatures(true, true, replies.legalMoveFeatures().get("g7h8" + promotion));
         }
     }
 
@@ -87,8 +87,8 @@ class MoveContextCalculatorTest {
     @Test
     void castlingIsNotACapture() {
         var context = calculator.calculate(current("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", 1), null);
-        assertEquals(new CandidateMoveFeatures(false, false), context.legalMoveFeatures().get("e1g1"));
-        assertEquals(new CandidateMoveFeatures(false, false), context.legalMoveFeatures().get("e1c1"));
+        assertCaptureFeatures(false, false, context.legalMoveFeatures().get("e1g1"));
+        assertCaptureFeatures(false, false, context.legalMoveFeatures().get("e1c1"));
     }
 
     @Test
@@ -97,6 +97,12 @@ class MoveContextCalculatorTest {
         assertThrows(IllegalArgumentException.class, () -> calculator.calculate(current(INITIAL, 2), previous));
         assertThrows(IllegalArgumentException.class,
                 () -> calculator.calculate(current(previous.getFenAfter(), 3), previous));
+    }
+
+    private void assertCaptureFeatures(boolean capture, boolean recapture, CandidateMoveFeatures features) {
+        assertNotNull(features);
+        assertEquals(capture, features.capture());
+        assertEquals(recapture, features.recapture());
     }
 
     private MoveContext after(String fen, String uci) {

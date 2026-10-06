@@ -29,6 +29,8 @@ public class GameMoveAnalysisCandidateEntity {
     // Nullable for historical candidates, or missing history for recapture.
     private Boolean capture;
     private Boolean recapture;
+    private Boolean givesCheck;
+    private Boolean promotion;
     private Integer evalCp;
     private Integer mateIn;
     @Enumerated(EnumType.STRING)

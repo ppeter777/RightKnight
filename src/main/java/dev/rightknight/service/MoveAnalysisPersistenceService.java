@@ -41,6 +41,8 @@ public class MoveAnalysisPersistenceService {
             }
             target.setCapture(features.capture());
             target.setRecapture(features.recapture());
+            target.setGivesCheck(features.givesCheck());
+            target.setPromotion(features.promotion());
             target.setEvalCp(source.getEvalCp());
             target.setMateIn(source.getMateIn());
             target.setScoreBound(source.getScoreBound());
