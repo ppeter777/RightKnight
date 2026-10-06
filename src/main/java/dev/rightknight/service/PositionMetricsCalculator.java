@@ -1,7 +1,6 @@
 package dev.rightknight.service;
 
 import com.github.bhlangonijr.chesslib.Board;
-import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +15,8 @@ public class PositionMetricsCalculator {
 
         board.loadFromFen(fen);
 
+        boolean inCheck = board.isKingAttacked();
+
         List<Move> legalMoves = board.legalMoves();
         int legalMovesCount = legalMoves.size();
 
@@ -25,13 +26,7 @@ public class PositionMetricsCalculator {
 
         for (Move move : legalMoves) {
 
-            boolean normalCapture =
-                    board.getPiece(move.getTo()) != Piece.NONE;
-
-            boolean enPassantCapture =
-                    move.getTo() == board.getEnPassant();
-
-            if (normalCapture || enPassantCapture) {
+            if (CaptureDetector.isCapture(board, move)) {
                 captureMovesCount++;
             }
 
@@ -48,6 +43,6 @@ public class PositionMetricsCalculator {
             board.undoMove();
         }
 
-        return new PositionMetrics(legalMovesCount, captureMovesCount, checkMovesCount, promotionMovesCount);
+        return new PositionMetrics(legalMovesCount, captureMovesCount, checkMovesCount, promotionMovesCount, inCheck);
     }
 }

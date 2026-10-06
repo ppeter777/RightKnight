@@ -28,6 +28,11 @@ public class GameMoveAnalysisEntity {
     @JoinColumn(name = "game_move_id", nullable = false)
     private GameMoveEntity gameMove;
 
+    // Nullable for historical analyses that predate these features.
+    private Boolean inCheck;
+    private Boolean previousMoveCapture;
+    private Integer recaptureMovesCount;
+
     private Integer legalMovesCount;
     private Integer captureMovesCount;
     private Integer checkMovesCount;

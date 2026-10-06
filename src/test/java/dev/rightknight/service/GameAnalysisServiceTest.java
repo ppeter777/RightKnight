@@ -116,7 +116,7 @@ public class GameAnalysisServiceTest {
         when(gameAnalysisRepository.save(any(GameAnalysisEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        when(moveAnalysisPersistenceService.save(any(GameMoveAnalysisEntity.class), anyList()))
+        when(moveAnalysisPersistenceService.save(any(GameMoveAnalysisEntity.class), anyList(), nullable(GameMoveEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         gameAnalysisService.analyzeGame(gameId);
@@ -136,9 +136,9 @@ public class GameAnalysisServiceTest {
         verify(moveAnalysis).analyzeMove(move1, p0, p1);
         verify(moveAnalysis).analyzeMove(move2, p1, p2);
         verify(moveAnalysis).analyzeMove(move3, p2, p3);
-        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p0));
-        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p1));
-        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p2));
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p0), isNull());
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p1), same(move1));
+        verify(moveAnalysisPersistenceService).save(any(GameMoveAnalysisEntity.class), same(p2), same(move2));
         verifyNoMoreInteractions(moveAnalysisPersistenceService);
     }
 
