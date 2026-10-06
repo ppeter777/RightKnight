@@ -47,6 +47,7 @@ class MoveAnalysisPersistenceServiceTest {
         new ResourceDatabasePopulator(new ClassPathResource(
                 "db/migration/V13__create_game_move_analysis_candidates.sql")).execute(dataSource);
         applyContextMigration();
+        applyCandidateMigration();
         GameEntity game = new GameEntity();
         game.setId(UUID.randomUUID().toString());
         game = games.save(game);
@@ -80,6 +81,10 @@ class MoveAnalysisPersistenceServiceTest {
         assertEquals(3, loaded.getFirst().getMateIn());
         assertEquals(-80, loaded.getLast().getEvalCp());
         assertEquals(ScoreBound.UPPER, loaded.getLast().getScoreBound());
+        assertEquals(true, loaded.getFirst().getGivesCheck()); // e8=Q checks h8.
+        assertEquals(false, loaded.getLast().getGivesCheck()); // e8=N does not.
+        assertEquals(true, loaded.getFirst().getPromotion());
+        assertEquals(true, loaded.getLast().getPromotion());
 
         GameAnalysisEntity secondRun = new GameAnalysisEntity();
         secondRun.setGame(move.getGame());
@@ -148,6 +153,8 @@ class MoveAnalysisPersistenceServiceTest {
         var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
         assertEquals(false, child.getCapture());
         assertNull(child.getRecapture());
+        assertEquals(false, child.getGivesCheck());
+        assertEquals(false, child.getPromotion());
     }
 
     @Test
@@ -163,6 +170,25 @@ class MoveAnalysisPersistenceServiceTest {
         assertNull(child.getCapture());
         assertNull(child.getRecapture());
         assertEquals(36, child.getEvalCp());
+    }
+
+    @Test
+    void candidateMigrationLeavesHistoricalFlagsUnknown() {
+        var saved = persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null);
+        applyCandidateMigration();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertNull(child.getGivesCheck());
+        assertNull(child.getPromotion());
+        assertEquals(false, child.getCapture());
+        assertEquals(36, child.getEvalCp());
+    }
+
+    private void applyCandidateMigration() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.execute("ALTER TABLE game_move_analysis_candidate DROP COLUMN IF EXISTS gives_check");
+        jdbc.execute("ALTER TABLE game_move_analysis_candidate DROP COLUMN IF EXISTS promotion");
+        new ResourceDatabasePopulator(new ClassPathResource(
+                "db/migration/V15__add_candidate_check_and_promotion.sql")).execute(dataSource);
     }
 
     private void applyContextMigration() {
