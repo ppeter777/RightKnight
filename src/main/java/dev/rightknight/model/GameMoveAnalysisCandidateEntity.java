@@ -26,6 +26,9 @@ public class GameMoveAnalysisCandidateEntity {
     private Integer pvRank;
     @Column(nullable = false, length = 5)
     private String moveUci;
+    // Nullable for historical candidates, or missing history for recapture.
+    private Boolean capture;
+    private Boolean recapture;
     private Integer evalCp;
     private Integer mateIn;
     @Enumerated(EnumType.STRING)

@@ -80,7 +80,7 @@ public class GameAnalysisService {
                 moveResult.setGameAnalysis(gameAnalysis);
                 moveResult.setGameMove(move);
 
-                moveAnalysisPersistenceService.save(moveResult, analysisBefore);
+                moveAnalysisPersistenceService.save(moveResult, analysisBefore, previousMove);
 
                 analysisBefore = analysisAfter;
 

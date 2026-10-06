@@ -4,5 +4,6 @@ public record PositionMetrics(
         int legalMovesCount,
         int captureMovesCount,
         int checkMovesCount,
-        int promotionMovesCount
+        int promotionMovesCount,
+        boolean inCheck
 ) {}

@@ -63,6 +63,7 @@ public class MoveAnalysis {
         analysis.setNodes(bestBefore.getNodes());
         analysis.setEngineTimeMs(bestBefore.getTimeMs());
 
+        analysis.setInCheck(positionMetrics.inCheck());
         analysis.setLegalMovesCount(positionMetrics.legalMovesCount());
         analysis.setCaptureMovesCount(positionMetrics.captureMovesCount());
         analysis.setCheckMovesCount(positionMetrics.checkMovesCount());

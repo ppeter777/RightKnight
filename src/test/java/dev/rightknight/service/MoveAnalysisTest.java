@@ -295,4 +295,17 @@ public class MoveAnalysisTest {
         org.junit.jupiter.api.Assertions.assertNull(
                 moveAnalysis.analyzeMove(move, List.of(before), List.of(after)).getLossCp());
     }
+    @Test
+    void carriesPreMoveCheckFlagIntoAnalysis() {
+        GameMoveEntity move = new GameMoveEntity();
+        move.setFenBefore("2R3k1/pp2bnpp/3qpr2/B2p4/3P2P1/1N5P/PP2QP2/6K1 b - - 2 27");
+        move.setUci("e7f8");
+        EngineCandidate before = new EngineCandidate();
+        before.setPv("e7f8");
+        before.setEvalCp(-30);
+        EngineCandidate after = new EngineCandidate();
+        after.setEvalCp(30);
+        assertEquals(true, moveAnalysis.analyzeMove(move, List.of(before), List.of(after)).getInCheck());
+    }
+
 }

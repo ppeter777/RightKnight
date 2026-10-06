@@ -59,3 +59,36 @@ Compare MultiPV settings (e.g. 3/5/10) in separate runs to study both the declin
 from rank 1 to rank K and changes in evaluations/ranking of the same root moves.
 Keep fixed-depth and fixed-time experiments separate. These distributions measure
 how demanding move selection is; human difficulty needs separate validation.
+
+## Position and previous-move context (V14)
+
+New analyses store `in_check` (the side to move in `fenBefore` is checked),
+`previous_move_capture`, and `recapture_moves_count` on `game_move_analysis`.
+Each candidate stores `capture` and `recapture` for its first move.
+
+A recapture captures the piece that made the immediately preceding capture:
+its destination is the previous move's destination. A capture following a quiet
+move is not a recapture. This also handles a reply to en passant and captures of
+promoted pieces. All classification uses legal moves, so pinned, illegal replies
+are excluded. `recapture_moves_count` counts ALL legal recaptures, not only the
+MultiPV candidates; four promotion choices count as four moves.
+
+The first imported ply has no predecessor: previous capture is false and the
+recapture count is zero. If history is unavailable for a later ply, previous
+capture, recapture count, and candidate recapture flags are NULL (unknown).
+Capture and in-check can still be computed from FEN. A supplied predecessor must
+match the previous ply and its stored `fenAfter` must equal the current `fenBefore`.
+
+The game-analysis loop passes its existing `previousMove` into the atomic
+persistence service; there is no per-move history database query. A separate
+`MoveContextCalculator` computes these features without Stockfish. Engine DTOs
+remain unchanged. `inCheck` is computed by `PositionMetricsCalculator` before
+trying moves and copied by `MoveAnalysis`. A shared capture detector also prevents
+quiet non-pawn moves to the en passant target from being counted as captures.
+
+V14 adds nullable columns without defaults or automatic backfill. Historical
+rows stay unknown. New game analysis fills the fields; an offline backfill from
+existing FENs and moves is possible but is not implemented here.
+
+These are descriptive features, not complexity scores: neither recapture nor
+being in check implies that a human decision is easy or hard.
