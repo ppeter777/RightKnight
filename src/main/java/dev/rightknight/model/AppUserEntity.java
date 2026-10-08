@@ -45,8 +45,8 @@ public class AppUserEntity {
     private String lichessUsername;
 
     @ColumnDefault("'ACTIVE'")
-    @Column(name = "status", length = 15)
-    private String status;
+    @Column(name = "status", nullable = false, length = 32)
+    private String status = UserStatus.ACTIVE.name();
 
 
     @PrePersist
