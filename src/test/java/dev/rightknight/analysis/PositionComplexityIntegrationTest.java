@@ -37,13 +37,13 @@ class PositionComplexityIntegrationTest {
     void realGameHasTwoDifferentLegalRecaptures() {
         var result = after("2r2rk1/pp1bbppp/1q2p2n/3pP3/1n1P2P1/2B2N1P/PPNQBP2/R1R3K1 b - - 0 17", "b4c2");
         assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE,
-                MULTIPLE_RECAPTURES_AVAILABLE), result.features());
+                MULTIPLE_RECAPTURES_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.features());
     }
 
     @Test
     void realGameHasOneLegalRecapture() {
         var result = after("2r2rk1/pp2bppp/1q2p2n/1b1pP3/3P2P1/2B2N1P/PPRQBP2/2R3K1 b - - 2 19", "b5e2");
-        assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE), result.features());
+        assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.features());
     }
 
     @Test
@@ -129,7 +129,15 @@ class PositionComplexityIntegrationTest {
         previous.setUci(uci);
         assertTrue(board.doMove(move));
         previous.setFenAfter(board.getFen());
-        return classify(current(previous.getFenAfter(), ply + 1), previous);
+        var current = current(previous.getFenAfter(), ply + 1);
+        if (uci.equals("b4c2") || uci.equals("b5e2")) {
+            // Qxh6 is a legal capture of a different piece in both real-game fixtures.
+            var other = contextCalculator.calculate(current, previous).legalMoveFeatures().get("d2h6");
+            assertNotNull(other);
+            assertTrue(other.capture());
+            assertFalse(other.recapture());
+        }
+        return classify(current, previous);
     }
 
     private PositionComplexity classify(GameMoveEntity current, GameMoveEntity previous) {
