@@ -56,14 +56,14 @@ class PositionComplexityCalculatorTest {
         var result = calculate(true, 1, null, null);
         assertEquals(Set.of(IN_CHECK, SINGLE_LEGAL_MOVE), result.features());
         assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE,
-                MULTIPLE_RECAPTURES_AVAILABLE), result.unknownFeatures());
+                MULTIPLE_RECAPTURES_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.unknownFeatures());
     }
 
     @Test
     void missingRecaptureCountIsNotInferredFromPreviousCapture() {
         var result = calculate(false, 10, true, null);
         assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE), result.features());
-        assertEquals(Set.of(RECAPTURE_AVAILABLE, MULTIPLE_RECAPTURES_AVAILABLE), result.unknownFeatures());
+        assertEquals(Set.of(RECAPTURE_AVAILABLE, MULTIPLE_RECAPTURES_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.unknownFeatures());
     }
 
     @Test
@@ -103,6 +103,7 @@ class PositionComplexityCalculatorTest {
         analysis.setLegalMovesCount(legalMoves);
         analysis.setPreviousMoveCapture(previousCapture);
         analysis.setRecaptureMovesCount(recaptures);
+        analysis.setCaptureMovesCount(recaptures);
         return calculator.calculate(analysis);
     }
 }

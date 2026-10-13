@@ -37,13 +37,13 @@ class PositionComplexityIntegrationTest {
     void realGameHasTwoDifferentLegalRecaptures() {
         var result = after("2r2rk1/pp1bbppp/1q2p2n/3pP3/1n1P2P1/2B2N1P/PPNQBP2/R1R3K1 b - - 0 17", "b4c2");
         assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE,
-                MULTIPLE_RECAPTURES_AVAILABLE), result.features());
+                MULTIPLE_RECAPTURES_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.features());
     }
 
     @Test
     void realGameHasOneLegalRecapture() {
         var result = after("2r2rk1/pp2bppp/1q2p2n/1b1pP3/3P2P1/2B2N1P/PPRQBP2/2R3K1 b - - 2 19", "b5e2");
-        assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE), result.features());
+        assertEquals(Set.of(PREVIOUS_MOVE_WAS_CAPTURE, RECAPTURE_AVAILABLE, OTHER_CAPTURE_AVAILABLE), result.features());
     }
 
     @Test
@@ -88,6 +88,37 @@ class PositionComplexityIntegrationTest {
                 MULTIPLE_RECAPTURES_AVAILABLE), result.unknownFeatures());
     }
 
+    @Test
+    void otherCaptureAndRecaptureCategoriesAgreeWithLegalMoveContext() {
+        String fen = "3r3k/8/8/8/3N4/n7/1B6/K2R4 b - - 0 1";
+        Board board = new Board();
+        board.loadFromFen(fen);
+        var previous = current(fen, 2);
+        previous.setUci("d8d4");
+        var move = board.legalMoves().stream().filter(m -> m.toString().equals("d8d4")).findFirst().orElseThrow();
+        assertTrue(board.doMove(move));
+        previous.setFenAfter(board.getFen());
+        var current = current(board.getFen(), 3);
+        var position = classify(current, previous);
+        assertTrue(position.features().contains(OTHER_CAPTURE_AVAILABLE));
+        assertTrue(position.features().contains(RECAPTURE_AVAILABLE));
+        var context = contextCalculator.calculate(current, previous);
+        var classifier = new CandidateMoveClassifier();
+        for (String uci : new String[]{"b2a3", "d1d4"}) {
+            var flags = context.legalMoveFeatures().get(uci);
+            assertNotNull(flags);
+            var candidate = new dev.rightknight.model.GameMoveAnalysisCandidateEntity();
+            candidate.setCapture(flags.capture());
+            candidate.setRecapture(flags.recapture());
+            candidate.setGivesCheck(flags.givesCheck());
+            candidate.setPromotion(flags.promotion());
+            var result = classifier.classify(candidate, context.previousMoveCapture());
+            assertTrue(result.categories().contains(CandidateMoveCategory.CAPTURE));
+            assertEquals(uci.equals("b2a3"), result.categories().contains(CandidateMoveCategory.OTHER_CAPTURE));
+            assertEquals(uci.equals("d1d4"), result.categories().contains(CandidateMoveCategory.RECAPTURE));
+        }
+    }
+
     private PositionComplexity after(String fen, String uci) {
         Board board = new Board();
         board.loadFromFen(fen);
@@ -98,7 +129,15 @@ class PositionComplexityIntegrationTest {
         previous.setUci(uci);
         assertTrue(board.doMove(move));
         previous.setFenAfter(board.getFen());
-        return classify(current(previous.getFenAfter(), ply + 1), previous);
+        var current = current(previous.getFenAfter(), ply + 1);
+        if (uci.equals("b4c2") || uci.equals("b5e2")) {
+            // Qxh6 is a legal capture of a different piece in both real-game fixtures.
+            var other = contextCalculator.calculate(current, previous).legalMoveFeatures().get("d2h6");
+            assertNotNull(other);
+            assertTrue(other.capture());
+            assertFalse(other.recapture());
+        }
+        return classify(current, previous);
     }
 
     private PositionComplexity classify(GameMoveEntity current, GameMoveEntity previous) {
@@ -107,6 +146,7 @@ class PositionComplexityIntegrationTest {
         var analysis = new GameMoveAnalysisEntity();
         analysis.setInCheck(metrics.inCheck());
         analysis.setLegalMovesCount(metrics.legalMovesCount());
+        analysis.setCaptureMovesCount(metrics.captureMovesCount());
         analysis.setPreviousMoveCapture(context.previousMoveCapture());
         analysis.setRecaptureMovesCount(context.recaptureMovesCount());
         return calculator.calculate(analysis);

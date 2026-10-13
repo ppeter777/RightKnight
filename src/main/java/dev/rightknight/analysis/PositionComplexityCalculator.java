@@ -15,9 +15,10 @@ public class PositionComplexityCalculator {
     public PositionComplexity calculate(GameMoveAnalysisEntity analysis) {
         Objects.requireNonNull(analysis, "analysis");
         Integer legalMoves = analysis.getLegalMovesCount();
+        Integer captures = analysis.getCaptureMovesCount();
         Integer recaptures = analysis.getRecaptureMovesCount();
         Boolean previousCapture = analysis.getPreviousMoveCapture();
-        validateCounts(legalMoves, recaptures, previousCapture);
+        validateCounts(legalMoves, captures, recaptures, previousCapture);
 
         EnumSet<PositionFeature> features = EnumSet.noneOf(PositionFeature.class);
         EnumSet<PositionFeature> unknown = EnumSet.noneOf(PositionFeature.class);
@@ -26,6 +27,7 @@ public class PositionComplexityCalculator {
         classify(PREVIOUS_MOVE_WAS_CAPTURE, previousCapture, features, unknown);
         classify(RECAPTURE_AVAILABLE, recaptures == null ? null : recaptures > 0, features, unknown);
         classify(MULTIPLE_RECAPTURES_AVAILABLE, recaptures == null ? null : recaptures > 1, features, unknown);
+        classify(OTHER_CAPTURE_AVAILABLE, otherCapture(previousCapture, captures, recaptures), features, unknown);
         return new PositionComplexity(features, unknown);
     }
 
@@ -38,7 +40,24 @@ public class PositionComplexityCalculator {
         }
     }
 
-    private static void validateCounts(Integer legalMoves, Integer recaptures, Boolean previousCapture) {
+    private static Boolean otherCapture(Boolean previousCapture, Integer captures, Integer recaptures) {
+        if (Boolean.FALSE.equals(previousCapture) || Integer.valueOf(0).equals(captures)) {
+            return false;
+        }
+        if (previousCapture == null || captures == null || recaptures == null) {
+            return null;
+        }
+        return captures > recaptures;
+    }
+
+    private static void validateCounts(Integer legalMoves, Integer captures,
+                                       Integer recaptures, Boolean previousCapture) {
+        if (captures != null && (captures < 0 || legalMoves != null && captures > legalMoves)) {
+            throw new IllegalArgumentException("Captures must be between zero and legal moves");
+        }
+        if (captures != null && recaptures != null && recaptures > captures) {
+            throw new IllegalArgumentException("Recaptures cannot exceed captures");
+        }
         if (legalMoves != null && legalMoves < 0 || recaptures != null && recaptures < 0) {
             throw new IllegalArgumentException("Move counts must not be negative");
         }
