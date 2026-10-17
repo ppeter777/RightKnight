@@ -35,11 +35,10 @@ installations. Existing analyses are not backfilled; reanalyse a game to populat
 candidates. Empty candidate lists on historical analysis rows mean unavailable
 candidate data, not zero legal moves.
 
-Known pre-existing limitation: the repository has no migrations creating
-`game_analysis` and `game_move_analysis`, while V12 already alters `game_analysis`.
-Therefore the full Flyway history cannot currently bootstrap a completely empty
-production database. V13 assumes those parent tables already exist. Existing
-migration checksums are deliberately unchanged.
+V11.1 now creates the analysis parent tables before V12/V13. Installations
+that previously created these tables through Hibernate can adopt V11.1 using
+the documented one-time out-of-order migration procedure; existing migrations
+retain their checksums.
 
 ## Validation
 
@@ -105,3 +104,58 @@ Both features are computed from `fenBefore`, without Stockfish or prior history.
 They are independent of the position's `in_check` flag. V15 adds nullable columns
 without defaults/backfill: existing candidates retain NULL, new analysis stores
 true/false. No complexity or sacrifice classification is introduced.
+
+## Played features and new direct attacks (V16)
+
+V16 adds nullable `played_capture`, `played_recapture`, `played_gives_check`,
+`played_promotion`, `played_new_attack_targets` to `game_move_analysis`, and
+`new_attack_targets` to each candidate. The target lists are JSONB arrays such as
+`[{"square":"f5","piece":"BLACK_KNIGHT"}]`. NULL means not calculated;
+`[]` means calculated with no new targets. Existing flags and records are kept.
+Reanalysis populates new fields; no automatic historical backfill is performed.
+
+The same `MoveContextCalculator` calculates features for every legal root move.
+Persistence selects the played UCI independently of MultiPV, so a played move
+outside top-K receives the same annotations. Missing or illegal played UCI fails
+that move's transaction.
+
+A new direct attack is an enemy non-king target attacked by the moving piece
+after the move but not before it. Targets are compared by square and piece.
+Sliding pieces respect blockers; pawns respect their color's attack direction.
+Geometric attacks are recorded even if the attacker is pinned or the move is a
+poor tactical choice. King attacks are represented by `gives_check` instead.
+Discovered attacks by other pieces are outside this version. For castling only
+the moving king is examined; rook attacks are outside this version. Promotion
+uses the promoted piece's attacks.
+
+`MoveFeatureClassifier` classifies both candidates and played moves using the
+same rules. Supply the piece on the destination after making the move, including
+promotion, rather than the pawn before promotion:
+
+```java
+var candidateCategories = classifier.classify(candidate, previousMoveCapture, Piece.WHITE_BISHOP);
+var playedCategories = classifier.classifyPlayed(analysis, Piece.WHITE_PAWN);
+```
+
+- `NEW_ATTACK_ON_MORE_VALUABLE_PIECE`: at least one new target has greater
+  nominal value (pawn 1, knight/bishop 3, rook 5, queen 9; king is excluded).
+- `NEW_PAWN_ATTACK_ON_PIECE`: a pawn newly attacks an enemy non-pawn, non-king.
+- `OTHER_CAPTURE`: previous move was a capture, this move is a capture, and
+  it is not a recapture. This remains derived from raw flags for both played
+  and candidate moves; it does not assert that the captured piece is undefended
+  or the capture is beneficial.
+
+The existing `CandidateMoveClassifier` API delegates to the shared classifier.
+Its two-argument overload cannot classify nonempty attack targets without the
+moving piece: those categories are unknown. An empty target list is known false
+regardless of attacker; a NULL list is unknown. Categories may overlap.
+No quality judgement or complexity coefficient is added.
+
+Tests include the Bg5/g4/Bxa6 position, retained attacks, blockers, pawn direction,
+pins, promotion, persistence and transactional rollback. CI runs the V11.1–V16
+analysis-schema subset on a disposable PostgreSQL 16 service, testing historical
+NULLs, JSONB arrays and a repeated Flyway run. ORM round trips run on H2 in
+PostgreSQL mode. To run the PostgreSQL test locally, provide
+`RIGHTKNIGHT_TEST_PG_URL`, `RIGHTKNIGHT_TEST_PG_USER`, and
+`RIGHTKNIGHT_TEST_PG_PASSWORD` for a disposable test database whose user can
+create schemas. This is not a test of the full V1–V16 application migration chain.

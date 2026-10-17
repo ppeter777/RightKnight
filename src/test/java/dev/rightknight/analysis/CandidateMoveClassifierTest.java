@@ -109,6 +109,9 @@ class CandidateMoveClassifierTest {
         candidate.setRecapture(recapture);
         candidate.setGivesCheck(check);
         candidate.setPromotion(promotion);
+        if (capture != null || recapture != null || check != null || promotion != null) {
+            candidate.setNewAttackTargets(java.util.List.of());
+        }
         return candidate;
     }
 }

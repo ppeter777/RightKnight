@@ -48,12 +48,14 @@ class MoveAnalysisPersistenceServiceTest {
                 "db/migration/V13__create_game_move_analysis_candidates.sql")).execute(dataSource);
         applyContextMigration();
         applyCandidateMigration();
+        applyAttackMigration();
         GameEntity game = new GameEntity();
         game.setId(UUID.randomUUID().toString());
         game = games.save(game);
         move = new GameMoveEntity();
         move.setGame(game);
         move.setPly(1);
+        move.setUci("e2e4");
         move.setFenBefore("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         move = moves.save(move);
         run = new GameAnalysisEntity();
@@ -64,6 +66,7 @@ class MoveAnalysisPersistenceServiceTest {
     @Test
     void roundTripKeepsRankPerspectiveMateBoundAndPvAcrossRuns() {
         move.setFenBefore("7k/4P3/8/8/8/8/8/K7 w - - 0 1");
+        move.setUci("e7e8q");
         move = moves.save(move);
         EngineCandidate second = candidate(2, "e7e8n", -80);
         second.setScoreBound(ScoreBound.UPPER);
@@ -126,6 +129,7 @@ class MoveAnalysisPersistenceServiceTest {
         previous.setFenAfter("2r2rk1/pp2bppp/1q2p2n/3pP3/3P2P1/2B2N1P/PPRQbP2/2R3K1 w - - 0 20");
         move.setFenBefore(previous.getFenAfter());
         move.setPly(39);
+        move.setUci("d2e2");
         move = moves.save(move);
         var saved = persistence.save(analysis(),
                 List.of(candidate(1, "d2e2", 76), candidate(2, "c3a5", -334)), previous);
@@ -144,6 +148,7 @@ class MoveAnalysisPersistenceServiceTest {
     void missingHistoryKeepsRecaptureUnknownButCheckAndCaptureKnown() {
         move.setFenBefore("2R3k1/pp2bnpp/3qpr2/B2p4/3P2P1/1N5P/PP2QP2/6K1 b - - 2 27");
         move.setPly(54);
+        move.setUci("e7f8");
         move = moves.save(move);
         var saved = persistence.save(analysis(), List.of(candidate(1, "e7f8", -30)), null);
         var parent = analyses.findById(saved.getId()).orElseThrow();
@@ -181,6 +186,95 @@ class MoveAnalysisPersistenceServiceTest {
         assertNull(child.getPromotion());
         assertEquals(false, child.getCapture());
         assertEquals(36, child.getEvalCp());
+    }
+
+    @Test
+    void playedMoveOutsideMultiPvAndCandidateTargetsSurviveDatabaseRoundTrip() {
+        move.setFenBefore("r1bqkb1r/pp3ppp/n3p3/3pPn2/3p4/N1P2N2/PP2BPPP/R1BQ1RK1 w kq - 0 10");
+        move.setPly(19);
+        move.setUci("g2g4");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "c1g5", 95)), null);
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertEquals(List.of(new AttackTarget("f5", com.github.bhlangonijr.chesslib.Piece.BLACK_KNIGHT)), parent.getPlayedNewAttackTargets());
+        assertEquals(List.of(new AttackTarget("d8", com.github.bhlangonijr.chesslib.Piece.BLACK_QUEEN)), child.getNewAttackTargets());
+        assertEquals(false, parent.getPlayedCapture());
+        assertEquals(false, parent.getPlayedGivesCheck());
+        assertEquals(false, parent.getPlayedPromotion());
+        assertNull(parent.getPlayedRecapture());
+    }
+
+    @Test
+    void alternativeCaptureAfterCxd4IsClassifiedForPlayedMoveAndCandidate() {
+        GameMoveEntity previous = new GameMoveEntity();
+        previous.setPly(18);
+        previous.setUci("c5d4");
+        previous.setFenBefore("r1bqkb1r/pp3ppp/n3p3/2ppPn2/3P4/N1P2N2/PP2BPPP/R1BQ1RK1 b kq - 0 9");
+        previous.setFenAfter("r1bqkb1r/pp3ppp/n3p3/3pPn2/3p4/N1P2N2/PP2BPPP/R1BQ1RK1 w kq - 0 10");
+        move.setFenBefore(previous.getFenAfter());
+        move.setPly(19);
+        move.setUci("e2a6");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "f3d4", 98), candidate(2, "e2a6", 75)), previous);
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var loaded = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId());
+        var classifier = new dev.rightknight.analysis.MoveFeatureClassifier();
+        var played = classifier.classifyPlayed(parent, com.github.bhlangonijr.chesslib.Piece.WHITE_BISHOP);
+        assertTrue(played.categories().contains(dev.rightknight.analysis.CandidateMoveCategory.OTHER_CAPTURE));
+        assertEquals(played, classifier.classify(loaded.getLast(), true, com.github.bhlangonijr.chesslib.Piece.WHITE_BISHOP));
+        assertTrue(loaded.getFirst().getRecapture());
+    }
+
+    @Test
+    void sameMoveHasIdenticalPlayedAndCandidateFeaturesAndEmptyJsonList() {
+        var saved = persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null);
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertEquals(List.of(), parent.getPlayedNewAttackTargets());
+        assertEquals(parent.getPlayedNewAttackTargets(), child.getNewAttackTargets());
+        assertEquals(parent.getPlayedCapture(), child.getCapture());
+        assertEquals(parent.getPlayedRecapture(), child.getRecapture());
+        assertEquals(parent.getPlayedGivesCheck(), child.getGivesCheck());
+        assertEquals(parent.getPlayedPromotion(), child.getPromotion());
+    }
+
+    @Test
+    void attackMigrationLeavesExistingRowsUnknownWithoutLosingScores() {
+        var saved = persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null);
+        applyAttackMigration();
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        assertNull(parent.getPlayedCapture());
+        assertNull(parent.getPlayedRecapture());
+        assertNull(parent.getPlayedGivesCheck());
+        assertNull(parent.getPlayedPromotion());
+        assertNull(parent.getPlayedNewAttackTargets());
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertNull(child.getNewAttackTargets());
+        assertEquals(36, child.getEvalCp());
+        assertEquals(false, child.getCapture());
+    }
+
+    @Test
+    void invalidPlayedMoveCannotSavePartialAnalysis() {
+        move.setUci("e2e5");
+        move = moves.save(move);
+        long previousCount = analyses.count();
+        assertThrows(IllegalArgumentException.class,
+                () -> persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null));
+        assertEquals(previousCount, analyses.count());
+        assertEquals(0, candidates.count());
+    }
+
+    private void applyAttackMigration() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        for (String column : List.of("played_capture", "played_recapture", "played_gives_check",
+                "played_promotion", "played_new_attack_targets")) {
+            jdbc.execute("ALTER TABLE game_move_analysis DROP COLUMN IF EXISTS " + column);
+        }
+        jdbc.execute("ALTER TABLE game_move_analysis_candidate DROP COLUMN IF EXISTS new_attack_targets");
+        new ResourceDatabasePopulator(new ClassPathResource(
+                "db/migration/V16__add_played_features_and_attack_targets.sql")).execute(dataSource);
     }
 
     private void applyCandidateMigration() {

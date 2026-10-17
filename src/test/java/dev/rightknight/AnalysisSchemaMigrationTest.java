@@ -20,7 +20,8 @@ class AnalysisSchemaMigrationTest {
             "V12__drop_engine_version_from_game_analysis.sql",
             "V13__create_game_move_analysis_candidates.sql",
             "V14__add_move_context_features.sql",
-            "V15__add_candidate_check_and_promotion.sql"
+            "V15__add_candidate_check_and_promotion.sql",
+            "V16__add_played_features_and_attack_targets.sql"
     };
 
     @TempDir Path migrations;
@@ -31,15 +32,15 @@ class AnalysisSchemaMigrationTest {
         copyMigration(BASE);
         for (String name : LATER) copyMigration(name);
 
-        assertEquals(5, flyway(url, false).migrate().migrationsExecuted);
+        assertEquals(6, flyway(url, false).migrate().migrationsExecuted);
         assertFinalSchema(url);
         assertEquals(0, flyway(url, false).migrate().migrationsExecuted);
     }
 
     @Test
-    void adoptsExistingVersion15TablesWithoutLosingDataOrRestoringRemovedColumn() throws Exception {
+    void adoptsExistingVersion16TablesWithoutLosingDataOrRestoringRemovedColumn() throws Exception {
         String url = newDatabase();
-        // Simulate tables previously created outside Flyway, then V12-V15 applied.
+        // Simulate tables previously created outside Flyway, then V12-V16 applied.
         try (Connection connection = DriverManager.getConnection(url, "sa", "")) {
             ScriptUtils.executeSqlScript(connection,
                     new ClassPathResource("db/migration/" + BASE));
@@ -48,7 +49,7 @@ class AnalysisSchemaMigrationTest {
                     "INSERT INTO game_analysis (game_id, engine_name) VALUES ('existing-game', 'Stockfish')");
         }
         for (String name : LATER) copyMigration(name);
-        assertEquals(4, flyway(url, false).migrate().migrationsExecuted);
+        assertEquals(5, flyway(url, false).migrate().migrationsExecuted);
 
         copyMigration(BASE);
         assertEquals(1, flyway(url, true).migrate().migrationsExecuted);
@@ -91,8 +92,8 @@ class AnalysisSchemaMigrationTest {
                 assertFalse(columns.next());
             }
             try (var statement = connection.createStatement()) {
-                statement.executeQuery("SELECT in_check, previous_move_capture, recapture_moves_count FROM game_move_analysis").close();
-                statement.executeQuery("SELECT capture, recapture, gives_check, promotion FROM game_move_analysis_candidate").close();
+                statement.executeQuery("SELECT in_check, previous_move_capture, recapture_moves_count, played_capture, played_recapture, played_gives_check, played_promotion, played_new_attack_targets FROM game_move_analysis").close();
+                statement.executeQuery("SELECT capture, recapture, gives_check, promotion, new_attack_targets FROM game_move_analysis_candidate").close();
             }
         }
     }

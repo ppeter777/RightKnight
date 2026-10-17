@@ -29,6 +29,15 @@ public class MoveAnalysisPersistenceService {
         MoveContext context = contextCalculator.calculate(analysis.getGameMove(), previousMove);
         analysis.setPreviousMoveCapture(context.previousMoveCapture());
         analysis.setRecaptureMovesCount(context.recaptureMovesCount());
+        CandidateMoveFeatures played = context.legalMoveFeatures().get(analysis.getGameMove().getUci());
+        if (played == null) {
+            throw new IllegalArgumentException("Missing or illegal played move: " + analysis.getGameMove().getUci());
+        }
+        analysis.setPlayedCapture(played.capture());
+        analysis.setPlayedRecapture(played.recapture());
+        analysis.setPlayedGivesCheck(played.givesCheck());
+        analysis.setPlayedPromotion(played.promotion());
+        analysis.setPlayedNewAttackTargets(played.newAttackTargets());
         GameMoveAnalysisEntity saved = analysisRepository.save(analysis);
         List<GameMoveAnalysisCandidateEntity> candidates = before.stream().map(source -> {
             GameMoveAnalysisCandidateEntity target = new GameMoveAnalysisCandidateEntity();
@@ -43,6 +52,7 @@ public class MoveAnalysisPersistenceService {
             target.setRecapture(features.recapture());
             target.setGivesCheck(features.givesCheck());
             target.setPromotion(features.promotion());
+            target.setNewAttackTargets(features.newAttackTargets());
             target.setEvalCp(source.getEvalCp());
             target.setMateIn(source.getMateIn());
             target.setScoreBound(source.getScoreBound());
