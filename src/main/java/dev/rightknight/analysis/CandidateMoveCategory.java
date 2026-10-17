@@ -6,5 +6,7 @@ public enum CandidateMoveCategory {
     RECAPTURE,
     OTHER_CAPTURE,
     GIVES_CHECK,
-    PROMOTION
+    PROMOTION,
+    NEW_ATTACK_ON_MORE_VALUABLE_PIECE,
+    NEW_PAWN_ATTACK_ON_PIECE
 }

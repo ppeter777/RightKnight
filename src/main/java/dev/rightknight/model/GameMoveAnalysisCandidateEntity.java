@@ -4,6 +4,9 @@ import dev.rightknight.engine.ScoreBound;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** Scores use the side to move in the parent move's fenBefore. */
 @Entity
@@ -41,4 +44,8 @@ public class GameMoveAnalysisCandidateEntity {
     private Integer selectiveDepth;
     @Column(nullable = false, columnDefinition = "text")
     private String pvUci;
+    // null = not calculated; [] = calculated with no new direct targets.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<AttackTarget> newAttackTargets;
 }

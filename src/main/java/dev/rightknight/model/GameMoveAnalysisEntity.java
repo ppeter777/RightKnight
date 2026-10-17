@@ -3,6 +3,9 @@ package dev.rightknight.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(
@@ -50,4 +53,13 @@ public class GameMoveAnalysisEntity {
     private Integer playedMoveMateIn;
 
     private Integer lossCp;
+    private Boolean playedCapture;
+    private Boolean playedRecapture;
+    private Boolean playedGivesCheck;
+    private Boolean playedPromotion;
+
+    // null = not calculated; [] = calculated with no new direct targets.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<AttackTarget> playedNewAttackTargets;
 }

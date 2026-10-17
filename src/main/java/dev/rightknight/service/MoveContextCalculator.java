@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
+import dev.rightknight.model.AttackTarget;
 
 @Component
 public class MoveContextCalculator {
@@ -45,16 +47,20 @@ public class MoveContextCalculator {
                 recaptures++;
             }
             boolean promotion = candidate.getPromotion() != Piece.NONE;
+            List<AttackTarget> beforeTargets = DirectAttackDetector.targets(board, candidate.getFrom());
             board.doMove(candidate);
             boolean givesCheck;
+            List<AttackTarget> newTargets;
             try {
                 // After the move, side to move is the opponent.
                 givesCheck = board.isKingAttacked();
+                newTargets = DirectAttackDetector.targets(board, candidate.getTo()).stream()
+                        .filter(target -> !beforeTargets.contains(target)).toList();
             } finally {
                 board.undoMove();
             }
             features.put(candidate.toString(),
-                    new CandidateMoveFeatures(capture, recapture, givesCheck, promotion));
+                    new CandidateMoveFeatures(capture, recapture, givesCheck, promotion, newTargets));
         }
         return new MoveContext(previousCapture, previousCapture == null ? null : recaptures, features);
     }
