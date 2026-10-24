@@ -36,7 +36,9 @@ class AttackGraphCalculatorTest {
         for (var result : List.of(sourceMoves, targetMoves)) {
             assertTrue(result.before.relations().contains(r(ATTACK, "a1", "a8")));
             assertTrue(result.delta.addedRelations().isEmpty());
-            assertTrue(result.delta.removedRelations().isEmpty());
+            // The attack survives, while the moving rook stops geometrically defending its king.
+            var lostDefence = result == sourceMoves ? r(DEFENCE, "a1", "h1") : r(DEFENCE, "a8", "h8");
+            assertEquals(List.of(lostDefence), result.delta.removedRelations());
         }
     }
 
