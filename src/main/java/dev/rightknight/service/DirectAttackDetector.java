@@ -28,7 +28,8 @@ final class DirectAttackDetector {
         return List.copyOf(result);
     }
 
-    private static boolean attacks(Board board, Square from, Square to, Piece piece) {
+    static boolean attacks(Board board, Square from, Square to, Piece piece) {
+        if (from == to) return false;
         int fx = from.getFile().ordinal(), fy = from.getRank().ordinal();
         int dx = to.getFile().ordinal() - fx, dy = to.getRank().ordinal() - fy;
         int ax = Math.abs(dx), ay = Math.abs(dy);

@@ -1,6 +1,8 @@
 package dev.rightknight.model;
 
 import jakarta.persistence.*;
+import dev.rightknight.model.attack.AttackSnapshot;
+import dev.rightknight.model.attack.AttackDelta;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
@@ -51,6 +53,15 @@ public class GameMoveAnalysisEntity {
 
     private Integer playedMoveEvalCp;
     private Integer playedMoveMateIn;
+
+    // Version of extraction rules for the snapshot and every played/candidate delta in this analysis.
+    private Integer attackFeaturesVersion;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private AttackSnapshot attackSnapshotBefore;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private AttackDelta playedAttackDelta;
 
     private Integer lossCp;
     private Boolean playedCapture;

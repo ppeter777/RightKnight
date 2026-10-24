@@ -33,6 +33,9 @@ public class MoveAnalysisPersistenceService {
         if (played == null) {
             throw new IllegalArgumentException("Missing or illegal played move: " + analysis.getGameMove().getUci());
         }
+        analysis.setAttackSnapshotBefore(context.attackSnapshotBefore());
+        analysis.setAttackFeaturesVersion(AttackGraphCalculator.FEATURES_VERSION);
+        analysis.setPlayedAttackDelta(played.attackDelta());
         analysis.setPlayedCapture(played.capture());
         analysis.setPlayedRecapture(played.recapture());
         analysis.setPlayedGivesCheck(played.givesCheck());
@@ -48,6 +51,7 @@ public class MoveAnalysisPersistenceService {
             if (features == null) {
                 throw new IllegalArgumentException("Illegal candidate move: " + source.getBestMove());
             }
+            target.setAttackDelta(features.attackDelta());
             target.setCapture(features.capture());
             target.setRecapture(features.recapture());
             target.setGivesCheck(features.givesCheck());

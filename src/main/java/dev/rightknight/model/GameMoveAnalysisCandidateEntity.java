@@ -2,6 +2,7 @@ package dev.rightknight.model;
 
 import dev.rightknight.engine.ScoreBound;
 import jakarta.persistence.*;
+import dev.rightknight.model.attack.AttackDelta;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
@@ -44,6 +45,10 @@ public class GameMoveAnalysisCandidateEntity {
     private Integer selectiveDepth;
     @Column(nullable = false, columnDefinition = "text")
     private String pvUci;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private AttackDelta attackDelta;
+
     // null = not calculated; [] = calculated with no new direct targets.
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
