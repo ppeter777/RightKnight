@@ -159,3 +159,91 @@ PostgreSQL mode. To run the PostgreSQL test locally, provide
 `RIGHTKNIGHT_TEST_PG_URL`, `RIGHTKNIGHT_TEST_PG_USER`, and
 `RIGHTKNIGHT_TEST_PG_PASSWORD` for a disposable test database whose user can
 create schemas. This is not a test of the full V1–V16 application migration chain.
+
+## Full attack/defence snapshot and move deltas (V17)
+
+V17 adds three nullable JSONB columns and one nullable integer:
+
+| Table | Column | Content |
+| --- | --- | --- |
+| game_move_analysis | attack_snapshot_before | Root pieces and all geometric relations, for both colors |
+| game_move_analysis | played_attack_delta | Changes made by the played move, including outside MultiPV |
+| game_move_analysis | attack_features_version | Extraction rules version, currently 1, covering root and all deltas |
+| game_move_analysis_candidate | attack_delta | Changes made by this candidate |
+
+Despite the `attack_*` column names, both ATTACK and DEFENCE are calculated.
+The snapshot has `schemaVersion: 1`, `calculatedKinds: ["ATTACK", "DEFENCE"]`,
+`pieces` and `relations`. Each piece map key is its lowercase square in the
+ROOT position, used as its stable local ID for every alternative. Piece states
+contain `color`, `type` and current `square`. A relation contains `kind`,
+`sourceId` and `targetId`; it is directed and never points to itself.
+
+ATTACK connects opposite colors; DEFENCE connects equal colors. Both are
+geometric occupied-square relations. Blockers stop rays, pawns use diagonals,
+and kings control adjacent squares. Pinned pieces still contribute geometric
+relations. King targets are included (an ATTACK to a king is a check relation),
+but no king value, exchange profit or legal-capture claim is assigned. Empty
+square control, x-rays through blockers, overloaded defenders and tactical
+quality are outside this version.
+
+Each delta has `schemaVersion: 1`, `moveUci`, `pieceChanges`, `addedRelations`
+and `removedRelations`. Each piece change contains `pieceId`, `before` and
+`after` states (including color/type/square); `after: null` means captured.
+The moving piece keeps its ID, even when it captures an identical enemy piece
+or promotes. Standard castling changes king and rook; en passant removes the
+pawn off the destination square. Chess960 castling is not supported.
+
+Example for `7k/4r3/8/8/R7/2N5/8/7K w - - 0 1`, after `c3d5`:
+
+```json
+{
+  "schemaVersion": 1,
+  "moveUci": "c3d5",
+  "pieceChanges": [{
+    "pieceId": "c3",
+    "before": {"color": "WHITE", "type": "KNIGHT", "square": "c3"},
+    "after": {"color": "WHITE", "type": "KNIGHT", "square": "d5"}
+  }],
+  "addedRelations": [{"kind": "ATTACK", "sourceId": "c3", "targetId": "e7"}],
+  "removedRelations": [{"kind": "DEFENCE", "sourceId": "c3", "targetId": "a4"}]
+}
+```
+
+The root snapshot in this example has five pieces and one relation:
+`DEFENCE(c3, a4)`. Apply piece changes by ID (delete captured pieces); subtract
+removed relations from the root set and add added relations. Retained relations
+are the root set minus removed relations. A relation retained after promotion
+can have a different nominal value comparison because the piece type changed.
+Do not compare or apply deltas against another root or extraction version.
+
+Comparing IDs rather than current squares avoids false remove/add events when
+a target moves but remains under attack from the same piece. Full-board
+comparison captures discovered attacks, exposure of one's own pieces, blocked
+lines and lost defenders in either direction. Mechanism labels (discovered,
+escape, lost last defender, etc.) are not persisted or classified yet; the raw
+relations permit those later classifications. Capture deletes incident relations
+and is not an escape from attack. Losing a defender is not automatically an error.
+
+Nominal piece values and their differences remain computed from states; they
+are not stored in the payload. New fields do not change the V16 direct-target
+contract, existing move categories or complexityFactor. `AttackGraphCalculator`
+can run without Stockfish. `MoveContextCalculator` computes a single root
+snapshot and deltas for all legal moves, restoring the board after each move.
+Persistence saves the root, rule version, played delta and candidate deltas in
+the existing transaction.
+
+Migration does not backfill or change V16 data. SQL NULL means not calculated;
+an object with empty relation arrays means calculated with no such relations
+(or no changes). Even a quiet move with no relation changes has a piece change.
+`calculatedKinds` distinguishes uncomputed relation kinds from an empty result.
+`schemaVersion` describes JSON format; `attack_features_version` describes
+calculation semantics and must change if the extraction rules change. New data
+is populated by reanalysis; a separate offline backfill is not implemented.
+
+Validation covers the discussed knight position, retained source/target attacks,
+mutual defence, pinned defenders, both pawn colors, discovered and blocked lines,
+captures, both-color EP, all four standard castles, promotion/underpromotion,
+root-board restoration and reconstruction of after-states. ORM tests reload the
+nested JSON and captured nulls. PostgreSQL CI migrates V16 data to V17, round-trips
+real typed payloads through JSONB, preserves historical NULLs, and checks Flyway
+idempotence. This remains an analysis-schema subset test, not full V1–V17 bootstrap.

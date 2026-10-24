@@ -49,6 +49,7 @@ class MoveAnalysisPersistenceServiceTest {
         applyContextMigration();
         applyCandidateMigration();
         applyAttackMigration();
+        applyGraphMigration();
         GameEntity game = new GameEntity();
         game.setId(UUID.randomUUID().toString());
         game = games.save(game);
@@ -264,6 +265,62 @@ class MoveAnalysisPersistenceServiceTest {
                 () -> persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null));
         assertEquals(previousCount, analyses.count());
         assertEquals(0, candidates.count());
+    }
+
+    @Test
+    void snapshotAndDeltasRoundTripWithPlayedMoveOutsideMultiPv() {
+        move.setFenBefore("7k/4r3/8/8/R7/2N5/8/7K w - - 0 1");
+        move.setUci("c3d5");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "a4a5", 10)), null);
+        var loaded = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertEquals(1, loaded.getAttackFeaturesVersion());
+        assertEquals(saved.getAttackSnapshotBefore(), loaded.getAttackSnapshotBefore());
+        assertEquals(saved.getPlayedAttackDelta(), loaded.getPlayedAttackDelta());
+        assertEquals("c3d5", loaded.getPlayedAttackDelta().moveUci());
+        assertEquals("a4a5", child.getAttackDelta().moveUci());
+        assertEquals(5, loaded.getAttackSnapshotBefore().pieces().size());
+        assertEquals("e7", loaded.getPlayedAttackDelta().addedRelations().getFirst().targetId());
+        assertEquals("a4", loaded.getPlayedAttackDelta().removedRelations().getFirst().targetId());
+    }
+
+    @Test
+    void playedCandidateDeltaAndCapturedNullRoundTripIdentically() {
+        move.setFenBefore("r6k/8/8/8/8/8/8/R6K w - - 0 1");
+        move.setUci("a1a8");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "a1a8", 100)), null);
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertEquals(parent.getPlayedAttackDelta(), child.getAttackDelta());
+        assertTrue(child.getAttackDelta().pieceChanges().stream().anyMatch(c -> c.pieceId().equals("a8") && c.after() == null));
+        assertTrue(child.getAttackDelta().addedRelations().stream().anyMatch(r -> r.sourceId().equals("a1") && r.targetId().equals("h8")));
+    }
+
+    @Test
+    void graphMigrationPreservesV16DataAndLeavesNewFieldsUnknown() {
+        var saved = persistence.save(analysis(), List.of(candidate(1, "e2e4", 36)), null);
+        applyGraphMigration();
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertNull(parent.getAttackSnapshotBefore());
+        assertNull(parent.getPlayedAttackDelta());
+        assertNull(parent.getAttackFeaturesVersion());
+        assertNull(child.getAttackDelta());
+        assertEquals(List.of(), parent.getPlayedNewAttackTargets());
+        assertEquals(List.of(), child.getNewAttackTargets());
+        assertEquals(36, child.getEvalCp());
+    }
+
+    private void applyGraphMigration() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        for (String column : List.of("attack_snapshot_before", "played_attack_delta", "attack_features_version")) {
+            jdbc.execute("ALTER TABLE game_move_analysis DROP COLUMN IF EXISTS " + column);
+        }
+        jdbc.execute("ALTER TABLE game_move_analysis_candidate DROP COLUMN IF EXISTS attack_delta");
+        new ResourceDatabasePopulator(new ClassPathResource(
+                "db/migration/V17__add_attack_snapshots_and_deltas.sql")).execute(dataSource);
     }
 
     private void applyAttackMigration() {

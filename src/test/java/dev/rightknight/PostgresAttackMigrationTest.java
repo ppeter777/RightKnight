@@ -25,7 +25,8 @@ class PostgresAttackMigrationTest {
         for (String name : new String[]{"V11_1__create_analysis_tables.sql",
                 "V12__drop_engine_version_from_game_analysis.sql", "V13__create_game_move_analysis_candidates.sql",
                 "V14__add_move_context_features.sql", "V15__add_candidate_check_and_promotion.sql",
-                "V16__add_played_features_and_attack_targets.sql"}) {
+                "V16__add_played_features_and_attack_targets.sql",
+                "V17__add_attack_snapshots_and_deltas.sql"}) {
             try (var input = new ClassPathResource("db/migration/" + name).getInputStream()) {
                 Files.copy(input, migrations.resolve(name));
             }
@@ -69,6 +70,51 @@ class PostgresAttackMigrationTest {
                     assertEquals("BLACK_KNIGHT", row.getString(2));
                 }
                 assertEquals(0, upgraded.migrate().migrationsExecuted);
+                var v17 = config.target("17").load();
+                assertEquals(1, v17.migrate().migrationsExecuted);
+                try (var row = sql.executeQuery("SELECT attack_snapshot_before, played_attack_delta, attack_features_version, played_new_attack_targets::text FROM game_move_analysis")) {
+                    assertTrue(row.next());
+                    for (int column = 1; column <= 3; column++) assertNull(row.getObject(column));
+                    assertEquals("[]", row.getString(4));
+                }
+                try (var row = sql.executeQuery("SELECT attack_delta, eval_cp FROM game_move_analysis_candidate")) {
+                    assertTrue(row.next());
+                    assertNull(row.getObject(1));
+                    assertEquals(84, row.getInt(2));
+                }
+                var board = new com.github.bhlangonijr.chesslib.Board();
+                board.loadFromFen("r6k/8/8/8/8/8/8/R6K w - - 0 1");
+                var calculator = new dev.rightknight.service.AttackGraphCalculator();
+                var snapshot = calculator.snapshot(board);
+                var move = board.legalMoves().stream().filter(m -> m.toString().equals("a1a8")).findFirst().orElseThrow();
+                board.doMove(move);
+                var delta = calculator.delta(snapshot, move, board);
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String snapshotJson = mapper.writeValueAsString(snapshot);
+                String deltaJson = mapper.writeValueAsString(delta);
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 1")) {
+                    update.setString(1, snapshotJson);
+                    update.setString(2, deltaJson);
+                    update.executeUpdate();
+                }
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis_candidate SET attack_delta = ?::jsonb")) {
+                    update.setString(1, deltaJson);
+                    update.executeUpdate();
+                }
+                try (var row = sql.executeQuery("SELECT pg_typeof(attack_snapshot_before)::text, attack_snapshot_before, played_attack_delta, attack_features_version FROM game_move_analysis")) {
+                    assertTrue(row.next());
+                    assertEquals("jsonb", row.getString(1));
+                    assertEquals(snapshot, mapper.readValue(row.getString(2), dev.rightknight.model.attack.AttackSnapshot.class));
+                    assertEquals(delta, mapper.readValue(row.getString(3), dev.rightknight.model.attack.AttackDelta.class));
+                    assertEquals(1, row.getInt(4));
+                }
+                try (var row = sql.executeQuery("SELECT jsonb_typeof(attack_delta), attack_delta->>'moveUci', attack_delta FROM game_move_analysis_candidate")) {
+                    assertTrue(row.next());
+                    assertEquals("object", row.getString(1));
+                    assertEquals("a1a8", row.getString(2));
+                    assertEquals(delta, mapper.readValue(row.getString(3), dev.rightknight.model.attack.AttackDelta.class));
+                }
+                assertEquals(0, v17.migrate().migrationsExecuted);
             } finally {
                 sql.execute("DROP SCHEMA " + schema + " CASCADE");
             }

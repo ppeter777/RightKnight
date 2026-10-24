@@ -5,6 +5,7 @@ import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
 import dev.rightknight.model.GameMoveEntity;
+import dev.rightknight.model.attack.AttackDelta;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -14,6 +15,7 @@ import dev.rightknight.model.AttackTarget;
 
 @Component
 public class MoveContextCalculator {
+    private final AttackGraphCalculator attacks = new AttackGraphCalculator();
     public MoveContext calculate(GameMoveEntity move, GameMoveEntity previousMove) {
         Board board = new Board();
         board.loadFromFen(move.getFenBefore());
@@ -37,6 +39,7 @@ public class MoveContextCalculator {
             }
         }
 
+        var snapshot = attacks.snapshot(board);
         int recaptures = 0;
         Map<String, CandidateMoveFeatures> features = new LinkedHashMap<>();
         for (Move candidate : board.legalMoves()) {
@@ -50,18 +53,20 @@ public class MoveContextCalculator {
             List<AttackTarget> beforeTargets = DirectAttackDetector.targets(board, candidate.getFrom());
             board.doMove(candidate);
             boolean givesCheck;
+            AttackDelta delta;
             List<AttackTarget> newTargets;
             try {
                 // After the move, side to move is the opponent.
                 givesCheck = board.isKingAttacked();
+                delta = attacks.delta(snapshot, candidate, board);
                 newTargets = DirectAttackDetector.targets(board, candidate.getTo()).stream()
                         .filter(target -> !beforeTargets.contains(target)).toList();
             } finally {
                 board.undoMove();
             }
             features.put(candidate.toString(),
-                    new CandidateMoveFeatures(capture, recapture, givesCheck, promotion, newTargets));
+                    new CandidateMoveFeatures(capture, recapture, givesCheck, promotion, newTargets, delta));
         }
-        return new MoveContext(previousCapture, previousCapture == null ? null : recaptures, features);
+        return new MoveContext(previousCapture, previousCapture == null ? null : recaptures, snapshot, features);
     }
 }
