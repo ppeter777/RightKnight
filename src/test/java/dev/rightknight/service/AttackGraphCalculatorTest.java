@@ -36,9 +36,8 @@ class AttackGraphCalculatorTest {
         for (var result : List.of(sourceMoves, targetMoves)) {
             assertTrue(result.before.relations().contains(r(ATTACK, "a1", "a8")));
             assertTrue(result.delta.addedRelations().isEmpty());
-            // The attack survives, while the moving rook stops geometrically defending its king.
-            var lostDefence = result == sourceMoves ? r(DEFENCE, "a1", "h1") : r(DEFENCE, "a8", "h8");
-            assertEquals(List.of(lostDefence), result.delta.removedRelations());
+            // Version 2 has no DEFENCE relation to one's own king.
+            assertTrue(result.delta.removedRelations().isEmpty());
         }
     }
 
@@ -140,12 +139,15 @@ class AttackGraphCalculatorTest {
     }
 
     @Test
-    void noRelationChangeIsAnEmptyDeltaAndSnapshotsAreImmutable() {
+    void noRelationChangeCanStillChangeControlAndSnapshotsAreImmutable() {
         var result = move("7k/8/8/8/8/8/8/K7 w - - 0 1", "a1a2");
         assertTrue(result.before.relations().isEmpty());
         assertTrue(result.delta.addedRelations().isEmpty());
         assertTrue(result.delta.removedRelations().isEmpty());
         assertEquals(1, result.delta.pieceChanges().size());
+        assertEquals(Set.of(new AttackDelta.Control("a1", "a1"), new AttackDelta.Control("a1", "a3"),
+                new AttackDelta.Control("a1", "b3")), new HashSet<>(result.delta.addedControls()));
+        assertEquals(List.of(new AttackDelta.Control("a1", "a2")), result.delta.removedControls());
         assertThrows(UnsupportedOperationException.class, () -> result.before.pieces().clear());
         assertThrows(UnsupportedOperationException.class, () -> result.delta.pieceChanges().clear());
     }
@@ -179,6 +181,19 @@ class AttackGraphCalculatorTest {
         Set<Relation> normalizedExpected = new HashSet<>();
         expected.relations().forEach(r -> normalizedExpected.add(new Relation(r.kind(), stableIds.get(r.sourceId()), stableIds.get(r.targetId()))));
         assertEquals(normalizedExpected, actual);
+        Set<AttackDelta.Control> control = new HashSet<>();
+        before.squareControl().forEach((square, sides) -> sides.values().forEach(ids ->
+                ids.forEach(id -> control.add(new AttackDelta.Control(id, square)))));
+        assertTrue(Collections.disjoint(delta.addedControls(), delta.removedControls()));
+        assertTrue(control.containsAll(delta.removedControls()));
+        assertTrue(Collections.disjoint(control, delta.addedControls()));
+        control.removeAll(delta.removedControls());
+        control.addAll(delta.addedControls());
+        Set<AttackDelta.Control> expectedControl = new HashSet<>();
+        expected.squareControl().forEach((square, sides) -> sides.values().forEach(ids ->
+                ids.forEach(id -> expectedControl.add(new AttackDelta.Control(stableIds.get(id), square)))));
+        assertEquals(expectedControl, control, uci);
+        assertTrue(control.stream().allMatch(c -> pieces.containsKey(c.sourceId())));
         return new Result(before, delta);
     }
 

@@ -92,7 +92,7 @@ class PostgresAttackMigrationTest {
                 var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 String snapshotJson = mapper.writeValueAsString(snapshot);
                 String deltaJson = mapper.writeValueAsString(delta);
-                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 1")) {
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 2")) {
                     update.setString(1, snapshotJson);
                     update.setString(2, deltaJson);
                     update.executeUpdate();
@@ -106,13 +106,44 @@ class PostgresAttackMigrationTest {
                     assertEquals("jsonb", row.getString(1));
                     assertEquals(snapshot, mapper.readValue(row.getString(2), dev.rightknight.model.attack.AttackSnapshot.class));
                     assertEquals(delta, mapper.readValue(row.getString(3), dev.rightknight.model.attack.AttackDelta.class));
-                    assertEquals(1, row.getInt(4));
+                    assertEquals(2, row.getInt(4));
                 }
                 try (var row = sql.executeQuery("SELECT jsonb_typeof(attack_delta), attack_delta->>'moveUci', attack_delta FROM game_move_analysis_candidate")) {
                     assertTrue(row.next());
                     assertEquals("object", row.getString(1));
                     assertEquals("a1a8", row.getString(2));
                     assertEquals(delta, mapper.readValue(row.getString(3), dev.rightknight.model.attack.AttackDelta.class));
+                }
+                try (var row = sql.executeQuery("SELECT attack_snapshot_before->'squareControl'->'a2'->'WHITE'->>0, played_attack_delta->'addedControls', played_attack_delta->'removedControls' FROM game_move_analysis")) {
+                    assertTrue(row.next());
+                    assertEquals("a1", row.getString(1));
+                    assertTrue(mapper.readTree(row.getString(2)).isArray());
+                    assertTrue(mapper.readTree(row.getString(3)).isArray());
+                }
+                // Old persisted JSON lacks the control fields. Reading it must not fabricate empty data.
+                String legacySnapshot = new String(new ClassPathResource("attack-features/v1-snapshot.json").getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+                String legacyDelta = new String(new ClassPathResource("attack-features/v1-delta.json").getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 1")) {
+                    update.setString(1, legacySnapshot);
+                    update.setString(2, legacyDelta);
+                    update.executeUpdate();
+                }
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis_candidate SET attack_delta = ?::jsonb")) {
+                    update.setString(1, legacyDelta);
+                    update.executeUpdate();
+                }
+                try (var row = sql.executeQuery("SELECT attack_snapshot_before, played_attack_delta, attack_features_version FROM game_move_analysis")) {
+                    assertTrue(row.next());
+                    var historical = mapper.readValue(row.getString(1), dev.rightknight.model.attack.AttackSnapshot.class);
+                    assertEquals(1, historical.schemaVersion());
+                    assertNull(historical.squareControl());
+                    assertTrue(historical.relations().stream().anyMatch(r -> r.kind() == dev.rightknight.model.attack.AttackSnapshot.RelationKind.DEFENCE && r.targetId().equals("h1")));
+                    assertNull(mapper.readValue(row.getString(2), dev.rightknight.model.attack.AttackDelta.class).addedControls());
+                    assertEquals(1, row.getInt(3));
+                }
+                try (var row = sql.executeQuery("SELECT attack_delta FROM game_move_analysis_candidate")) {
+                    assertTrue(row.next());
+                    assertNull(mapper.readValue(row.getString(1), dev.rightknight.model.attack.AttackDelta.class).removedControls());
                 }
                 assertEquals(0, v17.migrate().migrationsExecuted);
             } finally {

@@ -247,3 +247,65 @@ root-board restoration and reconstruction of after-states. ORM tests reload the
 nested JSON and captured nulls. PostgreSQL CI migrates V16 data to V17, round-trips
 real typed payloads through JSONB, preserves historical NULLs, and checks Flyway
 idempotence. This remains an analysis-schema subset test, not full V1–V17 bootstrap.
+
+## Square control and king defence filtering (JSON schema 2 / features version 2)
+
+This extends the existing V17 JSONB columns; no new SQL migration is required.
+New analyses use `schemaVersion: 2` in snapshots and deltas, and
+`attack_features_version = 2` on the parent. The V17 section above describes
+schema/rules version 1. Its payload remains readable with its original meaning.
+
+`attack_snapshot_before` now also contains `squareControl`: all 64 lowercase
+square names, each with explicit `WHITE` and `BLACK` arrays of stable root-piece
+IDs. An uncontrolled square has two empty arrays. For example, a fragment:
+
+```json
+"squareControl": {
+  "e5": {"WHITE": ["f3", "d4"], "BLACK": ["c6"]}
+}
+```
+
+The map includes occupied squares. A slider controls the first blocker square
+of either color, but nothing beyond it. A piece does not control its own square.
+Pawns control diagonals, never forward pushes; kings control adjacent squares.
+Pinned pieces still contribute geometric control. Control is not a claim that
+a capture or king move is legal, or that occupying a square would be safe.
+No x-rays through pieces or material-value weights are included.
+
+Both `played_attack_delta` and each candidate's `attack_delta` now also contain:
+
+```json
+"addedControls": [{"sourceId": "f3", "square": "f6"}],
+"removedControls": [{"sourceId": "f3", "square": "e5"}]
+```
+
+These are set differences of `(sourceId, square)` pairs. Unlike relation targets,
+controlled squares are physical board coordinates, not piece IDs. Resolve the
+source's color from the root snapshot, even for a removed, captured source.
+Keep retained controls, subtract removed ones and add new ones to reconstruct
+the full map after the move. Captures remove the victim's controls, promotions
+use the new type with the same source ID, and castling updates both king and rook.
+A move with no attack/defence relation changes can still have control changes.
+All candidate deltas share the parent root snapshot, and the played move is
+processed even when it is outside MultiPV.
+
+ATTACK/DEFENCE relations are now projected from that same control map, with one
+exception: omit DEFENCE whose target is one's own king. Keep ATTACK to the enemy
+king (check) and DEFENCE from one's own king to other friendly pieces. Control
+of a square occupied by one's own king remains in `squareControl`; only the
+redundant piece-defence relation is excluded. Historical schema-1 king-defence
+relations are not silently filtered during reading.
+
+Missing new fields in schema 1 deserialize as Java null (unknown), not empty
+maps/lists. Re-serialization omits those null additions and retains schemaVersion
+1. Schema 2 requires the map and both control delta arrays. The calculator
+rejects a schema-1 snapshot as the basis for a schema-2 delta; recompute from
+FEN to populate current data. SQL NULL for an entire snapshot/delta continues
+to mean not calculated. There is no automatic database rewrite or backfill.
+
+Tests cover explicit empty controls, piece geometry, both colors, blockers,
+pins, king targets/sources, relation/control agreement, and immutable payloads.
+Existing reconstruction tests now rebuild control after every tested move,
+including both-color en passant, all standard castles, promotion and captures.
+ORM and PostgreSQL JSONB tests exercise both schema versions, including old
+missing fields. Nominal value categories and complexityFactor are unchanged.

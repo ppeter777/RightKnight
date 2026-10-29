@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "calculatedKinds": ["ATTACK", "DEFENCE"],
+  "pieces": {
+    "a1": {"color":"WHITE", "type":"ROOK", "square":"a1"},
+    "h1": {"color":"WHITE", "type":"KING", "square":"h1"},
+    "a8": {"color":"BLACK", "type":"ROOK", "square":"a8"},
+    "h8": {"color":"BLACK", "type":"KING", "square":"h8"}
+  },
+  "relations": [
+    {"kind":"DEFENCE", "sourceId":"a1", "targetId":"h1"},
+    {"kind":"ATTACK", "sourceId":"a1", "targetId":"a8"},
+    {"kind":"ATTACK", "sourceId":"a8", "targetId":"a1"},
+    {"kind":"DEFENCE", "sourceId":"a8", "targetId":"h8"}
+  ]
+}
