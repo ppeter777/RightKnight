@@ -1,20 +1,47 @@
 package dev.rightknight.model.attack;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.Square;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-/** Occupied-square geometric relations, including king targets. IDs are root-position squares. */
+/** Geometric relations and all-square control. IDs remain root-position squares. */
 public record AttackSnapshot(int schemaVersion, List<RelationKind> calculatedKinds,
-                             Map<String, PieceState> pieces, List<Relation> relations) {
+                             Map<String, PieceState> pieces, List<Relation> relations,
+                             @JsonInclude(JsonInclude.Include.NON_NULL)
+                             Map<String, Map<Side, List<String>>> squareControl) {
     public AttackSnapshot {
         calculatedKinds = List.copyOf(calculatedKinds);
         pieces = Collections.unmodifiableMap(new LinkedHashMap<>(pieces));
         relations = List.copyOf(relations);
+        // Missing v1 data is unknown, never an empty, calculated control map.
+        if (schemaVersion >= 2 && squareControl == null) {
+            throw new IllegalArgumentException("Schema v2 requires squareControl");
+        }
+        if (squareControl != null) {
+            if (squareControl.size() != 64) throw new IllegalArgumentException("Expected 64 squares");
+            Map<String, Map<Side, List<String>>> copy = new LinkedHashMap<>();
+            for (Square square : Square.values()) {
+                if (square == Square.NONE) continue;
+                String name = square.name().toLowerCase(Locale.ROOT);
+                var sides = Objects.requireNonNull(squareControl.get(name), "Missing square " + name);
+                if (!sides.keySet().equals(EnumSet.allOf(Side.class))) {
+                    throw new IllegalArgumentException("Expected both colors at " + name);
+                }
+                Map<Side, List<String>> sideCopy = new EnumMap<>(Side.class);
+                sides.forEach((side, ids) -> sideCopy.put(side, List.copyOf(ids)));
+                copy.put(name, Collections.unmodifiableMap(sideCopy));
+            }
+            squareControl = Collections.unmodifiableMap(copy);
+        }
     }
 
     public enum RelationKind { ATTACK, DEFENCE }

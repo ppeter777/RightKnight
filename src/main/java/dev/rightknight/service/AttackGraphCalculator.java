@@ -3,15 +3,18 @@ package dev.rightknight.service;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
+import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
-import dev.rightknight.model.attack.AttackDelta;
+import dev.rightknight.model.attack.AttackDelta.Control;
 import dev.rightknight.model.attack.AttackDelta.PieceChange;
-import dev.rightknight.model.attack.AttackSnapshot;
+import dev.rightknight.model.attack.AttackDelta;
 import dev.rightknight.model.attack.AttackSnapshot.PieceState;
 import dev.rightknight.model.attack.AttackSnapshot.Relation;
 import dev.rightknight.model.attack.AttackSnapshot.RelationKind;
+import dev.rightknight.model.attack.AttackSnapshot;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,8 +23,8 @@ import java.util.Map;
 
 /** Pure geometric calculation for standard chess. Does not mutate the supplied boards. */
 public final class AttackGraphCalculator {
-    public static final int FEATURES_VERSION = 1;
-    private static final int SCHEMA_VERSION = 1;
+    public static final int FEATURES_VERSION = 2;
+    private static final int SCHEMA_VERSION = 2;
     private static final List<RelationKind> KINDS = List.of(RelationKind.ATTACK, RelationKind.DEFENCE);
 
     public AttackSnapshot snapshot(Board board) {
@@ -31,7 +34,7 @@ public final class AttackGraphCalculator {
             Piece piece = board.getPiece(square);
             if (piece != Piece.NONE) pieces.put(name(square), state(piece, square));
         }
-        return new AttackSnapshot(SCHEMA_VERSION, KINDS, pieces, relations(board, pieces));
+        return graph(board, pieces);
     }
 
     /** afterBoard must be the result of applying this legal move to before, once. */
@@ -61,30 +64,53 @@ public final class AttackGraphCalculator {
             if (after != null) afterPieces.put(id, after);
             if (!original.equals(after)) changes.add(new PieceChange(id, original, after));
         });
-        List<Relation> afterRelations = relations(afterBoard, afterPieces);
+        var after = graph(afterBoard, afterPieces);
+        List<Relation> afterRelations = after.relations();
+        var beforeControls = controls(before);
+        var afterControls = controls(after);
+        var oldControls = new HashSet<>(beforeControls);
+        var newControls = new HashSet<>(afterControls);
         var oldSet = new HashSet<>(before.relations());
         var newSet = new HashSet<>(afterRelations);
         return new AttackDelta(SCHEMA_VERSION, move.toString(), changes,
                 afterRelations.stream().filter(r -> !oldSet.contains(r)).toList(),
-                before.relations().stream().filter(r -> !newSet.contains(r)).toList());
+                before.relations().stream().filter(r -> !newSet.contains(r)).toList(),
+                afterControls.stream().filter(c -> !oldControls.contains(c)).toList(),
+                beforeControls.stream().filter(c -> !newControls.contains(c)).toList());
     }
 
-    private List<Relation> relations(Board board, Map<String, PieceState> pieces) {
-        List<Relation> result = new ArrayList<>();
-        for (var source : pieces.entrySet()) {
-            Square from = Square.valueOf(source.getValue().square().toUpperCase(Locale.ROOT));
-            Piece attacker = board.getPiece(from);
-            for (var target : pieces.entrySet()) {
-                if (source.getKey().equals(target.getKey())) continue;
-                Square to = Square.valueOf(target.getValue().square().toUpperCase(Locale.ROOT));
-                if (DirectAttackDetector.attacks(board, from, to, attacker)) {
-                    RelationKind kind = source.getValue().color() == target.getValue().color()
-                            ? RelationKind.DEFENCE : RelationKind.ATTACK;
-                    result.add(new Relation(kind, source.getKey(), target.getKey()));
+    private AttackSnapshot graph(Board board, Map<String, PieceState> pieces) {
+        Map<String, Map<Side, List<String>>> control = new LinkedHashMap<>();
+        for (Square square : Square.values()) {
+            if (square == Square.NONE) continue;
+            Map<Side, List<String>> sides = new EnumMap<>(Side.class);
+            sides.put(Side.WHITE, new ArrayList<>());
+            sides.put(Side.BLACK, new ArrayList<>());
+            control.put(name(square), sides);
+            for (var source : pieces.entrySet()) {
+                Square from = Square.valueOf(source.getValue().square().toUpperCase(Locale.ROOT));
+                if (DirectAttackDetector.attacks(board, from, square, board.getPiece(from))) {
+                    sides.get(source.getValue().color()).add(source.getKey());
                 }
             }
         }
-        return List.copyOf(result);
+        // Occupied-square relations are a projection of control, never a separate geometry calculation.
+        List<Relation> relations = new ArrayList<>();
+        for (var target : pieces.entrySet()) {
+            control.get(target.getValue().square()).forEach((color, sources) -> {
+                RelationKind kind = color == target.getValue().color() ? RelationKind.DEFENCE : RelationKind.ATTACK;
+                if (kind == RelationKind.DEFENCE && target.getValue().type() == PieceType.KING) return;
+                sources.forEach(source -> relations.add(new Relation(kind, source, target.getKey())));
+            });
+        }
+        return new AttackSnapshot(SCHEMA_VERSION, KINDS, pieces, relations, control);
+    }
+
+    private List<Control> controls(AttackSnapshot snapshot) {
+        List<Control> result = new ArrayList<>();
+        snapshot.squareControl().forEach((square, sides) ->
+                sides.values().forEach(ids -> ids.forEach(id -> result.add(new Control(id, square)))));
+        return result;
     }
 
     private static PieceState state(Piece piece, Square square) {

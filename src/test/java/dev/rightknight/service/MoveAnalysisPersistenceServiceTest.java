@@ -275,7 +275,7 @@ class MoveAnalysisPersistenceServiceTest {
         var saved = persistence.save(analysis(), List.of(candidate(1, "a4a5", 10)), null);
         var loaded = analyses.findById(saved.getId()).orElseThrow();
         var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
-        assertEquals(1, loaded.getAttackFeaturesVersion());
+        assertEquals(2, loaded.getAttackFeaturesVersion());
         assertEquals(saved.getAttackSnapshotBefore(), loaded.getAttackSnapshotBefore());
         assertEquals(saved.getPlayedAttackDelta(), loaded.getPlayedAttackDelta());
         assertEquals("c3d5", loaded.getPlayedAttackDelta().moveUci());
@@ -283,6 +283,12 @@ class MoveAnalysisPersistenceServiceTest {
         assertEquals(5, loaded.getAttackSnapshotBefore().pieces().size());
         assertEquals("e7", loaded.getPlayedAttackDelta().addedRelations().getFirst().targetId());
         assertEquals("a4", loaded.getPlayedAttackDelta().removedRelations().getFirst().targetId());
+        assertEquals(64, loaded.getAttackSnapshotBefore().squareControl().size());
+        assertTrue(loaded.getPlayedAttackDelta().addedControls().contains(
+                new dev.rightknight.model.attack.AttackDelta.Control("c3", "f6")));
+        assertTrue(child.getAttackDelta().addedControls().contains(
+                new dev.rightknight.model.attack.AttackDelta.Control("a4", "b5")));
+        assertEquals(2, child.getAttackDelta().schemaVersion());
     }
 
     @Test
@@ -311,6 +317,35 @@ class MoveAnalysisPersistenceServiceTest {
         assertEquals(List.of(), parent.getPlayedNewAttackTargets());
         assertEquals(List.of(), child.getNewAttackTargets());
         assertEquals(36, child.getEvalCp());
+    }
+
+    @Test
+    void legacySchema1JsonRoundTripsThroughOrmWithoutInventingControlOrChangingRules() throws Exception {
+        move.setFenBefore("r6k/8/8/8/8/8/8/R6K w - - 0 1");
+        move.setUci("a1a2");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "a1a2", 0)), null);
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var snapshot = mapper.readValue(new ClassPathResource("attack-features/v1-snapshot.json").getContentAsByteArray(),
+                dev.rightknight.model.attack.AttackSnapshot.class);
+        var delta = mapper.readValue(new ClassPathResource("attack-features/v1-delta.json").getContentAsByteArray(),
+                dev.rightknight.model.attack.AttackDelta.class);
+        saved.setAttackFeaturesVersion(1);
+        saved.setAttackSnapshotBefore(snapshot);
+        saved.setPlayedAttackDelta(delta);
+        analyses.save(saved);
+        child.setAttackDelta(delta);
+        candidates.save(child);
+        var reloaded = analyses.findById(saved.getId()).orElseThrow();
+        var candidate = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        assertEquals(1, reloaded.getAttackFeaturesVersion());
+        assertEquals(snapshot, reloaded.getAttackSnapshotBefore());
+        assertEquals(delta, reloaded.getPlayedAttackDelta());
+        assertEquals(delta, candidate.getAttackDelta());
+        assertNull(reloaded.getAttackSnapshotBefore().squareControl());
+        assertNull(reloaded.getPlayedAttackDelta().addedControls());
+        assertNull(candidate.getAttackDelta().removedControls());
     }
 
     private void applyGraphMigration() {

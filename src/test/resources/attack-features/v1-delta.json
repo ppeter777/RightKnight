@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "moveUci": "a1a2",
+  "pieceChanges": [{"pieceId":"a1", "before":{"color":"WHITE", "type":"ROOK", "square":"a1"}, "after":{"color":"WHITE", "type":"ROOK", "square":"a2"}}],
+  "addedRelations": [],
+  "removedRelations": [{"kind":"DEFENCE", "sourceId":"a1", "targetId":"h1"}]
+}
