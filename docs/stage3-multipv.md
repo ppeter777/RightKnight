@@ -309,3 +309,60 @@ Existing reconstruction tests now rebuild control after every tested move,
 including both-color en passant, all standard castles, promotion and captures.
 ORM and PostgreSQL JSONB tests exercise both schema versions, including old
 missing fields. Nominal value categories and complexityFactor are unchanged.
+
+## Readable attack deltas (V18 diagnostic views)
+
+Piece IDs identify root-position pieces, not their current squares. After
+`b5c6`, a queen with ID `b5` is on `c6`; a captured knight with ID `c6` no longer
+exists. To inspect exports without manually applying `pieceChanges`, V18 adds
+two ordinary PostgreSQL views:
+
+```sql
+SELECT game_move_analysis_id, played_attack_delta_display
+FROM game_move_analysis_attack_display
+WHERE game_move_analysis_id = 983;
+
+SELECT candidate_id, pv_rank, move_uci, attack_delta_display
+FROM game_move_analysis_candidate_attack_display
+WHERE game_move_analysis_id = 983
+ORDER BY pv_rank;
+```
+
+Both use `attack_delta_display(snapshot, delta)`. The diagnostic JSON contains
+`formatVersion: 1`, `sourceSchemaVersion`, `moveUci`, unchanged `pieceChanges`,
+and the original relation/control arrays enriched with `source` and, for
+relations, `target`. For the new defence of the queen in the reported `Qxc6`:
+
+```json
+{
+  "kind": "DEFENCE",
+  "sourceId": "c8",
+  "targetId": "b5",
+  "source": {"id": "c8", "color": "WHITE", "type": "ROOK", "square": "c8"},
+  "target": {"id": "b5", "color": "WHITE", "type": "QUEEN", "square": "c6"}
+}
+```
+
+Resolve **added** relations/controls from the after-position, and **removed**
+ones from the before-position. Thus a captured piece still appears at its old
+square in removed edges, and a promoted pawn appears with its new type in added
+edges. Castling relocates both stable identities. In controls, the top-level
+`square` is always the controlled board square; `source.square` is the piece's
+location at the appropriate time. Array order and all original edge fields are
+preserved. Retained relations are not new edges and remain outside the delta.
+
+This is a display format, not an `AttackDelta` persistence payload. Do not write
+it back to the analysis JSONB columns. Extraction/schema versions and stored
+data are unchanged. These non-materialized views work on existing schema-1/2
+analyses immediately after migration, with no engine run or backfill. Missing
+snapshot/delta gives SQL NULL; missing schema-1 controls stay omitted/unknown;
+computed empty arrays stay empty. Historical king-defence edges remain visible.
+Unsupported or mismatched schema versions and unresolvable relation endpoints
+raise errors rather than displaying an ID as a guessed square. The caller must
+still pair a delta with its own root snapshot; views enforce the parent join.
+
+The function is immutable and reads only its supplied JSON. Filter exports by
+analysis/run to avoid resolving every row unnecessarily. V18 is PostgreSQL-only;
+the PostgreSQL CI migration test verifies both views, raw-payload preservation,
+legacy data, nulls, the reported queen capture, en passant, both colors of
+castling, promotion and empty relation deltas. H2 subset tests remain at V17.
