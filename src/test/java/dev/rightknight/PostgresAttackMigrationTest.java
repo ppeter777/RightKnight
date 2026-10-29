@@ -26,7 +26,8 @@ class PostgresAttackMigrationTest {
                 "V12__drop_engine_version_from_game_analysis.sql", "V13__create_game_move_analysis_candidates.sql",
                 "V14__add_move_context_features.sql", "V15__add_candidate_check_and_promotion.sql",
                 "V16__add_played_features_and_attack_targets.sql",
-                "V17__add_attack_snapshots_and_deltas.sql"}) {
+                "V17__add_attack_snapshots_and_deltas.sql",
+                "V18__add_attack_display_views.sql"}) {
             try (var input = new ClassPathResource("db/migration/" + name).getInputStream()) {
                 Files.copy(input, migrations.resolve(name));
             }
@@ -146,6 +147,10 @@ class PostgresAttackMigrationTest {
                     assertNull(mapper.readValue(row.getString(1), dev.rightknight.model.attack.AttackDelta.class).removedControls());
                 }
                 assertEquals(0, v17.migrate().migrationsExecuted);
+                var v18 = config.target("18").load();
+                assertEquals(1, v18.migrate().migrationsExecuted);
+                AttackDisplayAssertions.verify(connection, legacySnapshot, legacyDelta);
+                assertEquals(0, v18.migrate().migrationsExecuted);
             } finally {
                 sql.execute("DROP SCHEMA " + schema + " CASCADE");
             }
