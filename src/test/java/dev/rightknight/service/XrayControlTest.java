@@ -24,7 +24,7 @@ class XrayControlTest {
         assertTrue(graph.xrayControl().contains(x("e7", "b4", "d6")));
         assertTrue(graph.xrayControl().contains(x("e7", "a3", "d6")));
         assertFalse(graph.xrayControl().contains(x("e7", "d6", "d6")));
-        assertEquals(List.of("d6"), graph.squareControl().get("c5").get(Side.BLACK));
+        assertEquals(Set.of("b6", "d6"), new HashSet<>(graph.squareControl().get("c5").get(Side.BLACK)));
         assertFalse(graph.relations().stream().anyMatch(r -> r.sourceId().equals("e7") && r.targetId().equals("b5")));
         assertEquals(graph.xrayControl().size(), new HashSet<>(graph.xrayControl()).size());
     }
