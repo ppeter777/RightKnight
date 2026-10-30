@@ -27,7 +27,8 @@ class PostgresAttackMigrationTest {
                 "V14__add_move_context_features.sql", "V15__add_candidate_check_and_promotion.sql",
                 "V16__add_played_features_and_attack_targets.sql",
                 "V17__add_attack_snapshots_and_deltas.sql",
-                "V18__add_attack_display_views.sql"}) {
+                "V18__add_attack_display_views.sql",
+                "V19__add_xray_control_display.sql"}) {
             try (var input = new ClassPathResource("db/migration/" + name).getInputStream()) {
                 Files.copy(input, migrations.resolve(name));
             }
@@ -93,7 +94,7 @@ class PostgresAttackMigrationTest {
                 var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 String snapshotJson = mapper.writeValueAsString(snapshot);
                 String deltaJson = mapper.writeValueAsString(delta);
-                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 2")) {
+                try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 3")) {
                     update.setString(1, snapshotJson);
                     update.setString(2, deltaJson);
                     update.executeUpdate();
@@ -107,7 +108,7 @@ class PostgresAttackMigrationTest {
                     assertEquals("jsonb", row.getString(1));
                     assertEquals(snapshot, mapper.readValue(row.getString(2), dev.rightknight.model.attack.AttackSnapshot.class));
                     assertEquals(delta, mapper.readValue(row.getString(3), dev.rightknight.model.attack.AttackDelta.class));
-                    assertEquals(2, row.getInt(4));
+                    assertEquals(3, row.getInt(4));
                 }
                 try (var row = sql.executeQuery("SELECT jsonb_typeof(attack_delta), attack_delta->>'moveUci', attack_delta FROM game_move_analysis_candidate")) {
                     assertTrue(row.next());
@@ -149,7 +150,10 @@ class PostgresAttackMigrationTest {
                 assertEquals(0, v17.migrate().migrationsExecuted);
                 var v18 = config.target("18").load();
                 assertEquals(1, v18.migrate().migrationsExecuted);
+                var v19 = config.target("19").load();
+                assertEquals(1, v19.migrate().migrationsExecuted);
                 AttackDisplayAssertions.verify(connection, legacySnapshot, legacyDelta);
+                assertEquals(0, v19.migrate().migrationsExecuted);
                 assertEquals(0, v18.migrate().migrationsExecuted);
             } finally {
                 sql.execute("DROP SCHEMA " + schema + " CASCADE");

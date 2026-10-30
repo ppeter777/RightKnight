@@ -366,3 +366,75 @@ analysis/run to avoid resolving every row unnecessarily. V18 is PostgreSQL-only;
 the PostgreSQL CI migration test verifies both views, raw-payload preservation,
 legacy data, nulls, the reported queen capture, en passant, both colors of
 castling, promotion and empty relation deltas. H2 subset tests remain at V17.
+
+## Basic battery control (JSON schema 3 / features version 3)
+
+New analyses extend the same JSONB columns. `attack_snapshot_before` contains
+`xrayControl`, a list separate from direct `squareControl` and piece relations:
+
+```json
+"xrayControl": [
+  {"sourceId": "e7", "square": "c5", "throughIds": ["d6"]},
+  {"sourceId": "d1", "square": "d4", "throughIds": ["d2", "d3"]}
+]
+```
+
+These are independent examples: a bishop e7 supports a queen d6 toward c5;
+a queen d1 supports two rooks d2/d3 toward d4. `square` is a physical board
+coordinate. `sourceId` and ordered `throughIds` are stable root-piece IDs.
+The intermediate IDs run from source toward target, excluding both endpoints.
+
+Scope is deliberately limited to geometric batteries of the same color:
+
+- The source and each intermediate are compatible sliders for the ray:
+  bishop/queen diagonally, rook/queen orthogonally.
+- There are one or two intermediate pieces. Thus three-piece batteries work
+  without a separate special-case rule. Gaps between pieces are allowed.
+- Include the first incompatible friendly or any enemy blocker square, then
+  stop. Never continue through a pawn, knight, king, incompatible slider or
+  opponent's piece. A third compatible intermediate also terminates the ray:
+  its square is included through the preceding two, but nothing beyond it.
+- Empty `xrayControl` means calculated with no batteries. A directly controlled
+  square is not emitted as x-ray control for the same source. Pinned pieces
+  still contribute; no legal-capture, safe-square or exchange-profit inference.
+
+Both `played_attack_delta` and candidate `attack_delta` contain
+`addedXrayControls` and `removedXrayControls`, using the same entry format.
+Compare `(sourceId, square, throughIds)` including the entire ordered chain.
+A changed chain is removal plus addition even when the source and square match;
+moving an intermediate without changing the chain does not by itself change
+control of a given square. Reconstruct after-control by subtracting removals and
+adding additions. Direct control and attack/defence relations keep their existing
+semantics: do not sum x-ray sources into counts of immediate attackers.
+
+`schemaVersion` and `attack_features_version` are now 3. Missing x-ray fields in
+versions 1/2 deserialize as null/unknown and are omitted on reserialization;
+schema 3 requires all three calculated arrays, including explicit empty arrays.
+The calculator requires a current-version root for current deltas. Reanalysis
+populates the new data; historical records are not rewritten or backfilled.
+
+Flyway **V19** updates only the `attack_delta_display` function used by the two
+existing diagnostic views; no new column is needed. For schema 3, its
+`formatVersion` is 2. X-ray entries retain their IDs and controlled square and
+add `source` plus an ordered `through` array of `{id, color, type, square}`.
+All participants resolve against the after-position for additions and the
+before-position for removals. Schema-1/2 display retains format version 1 and
+omits unknown x-ray fields. For example:
+
+```sql
+SELECT attack_snapshot_before->'xrayControl'
+FROM game_move_analysis WHERE id = 983;
+
+SELECT played_attack_delta_display->'addedXrayControls',
+       played_attack_delta_display->'removedXrayControls'
+FROM game_move_analysis_attack_display WHERE game_move_analysis_id = 983;
+```
+
+Validation covers the reported bishop/queen battery, ordered two-intermediate
+chains, depth limit, both colors, diagonal/horizontal/vertical rays, incompatible
+and enemy blockers, pins, changing chains, captures, en passant, castling and
+promotion. Reconstruction checks cover all legal moves of the existing sample
+position. ORM tests cover nonempty x-ray JSON for played moves outside MultiPV
+and candidates. PostgreSQL tests cover V19, display coordinates for intermediates,
+version-1/2 compatibility and JSONB round trips. Complexity coefficients and
+tactical labels remain unchanged.
