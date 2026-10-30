@@ -5,6 +5,7 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import dev.rightknight.model.attack.AttackDelta;
 import dev.rightknight.model.attack.AttackSnapshot;
 import dev.rightknight.model.attack.AttackSnapshot.*;
+import dev.rightknight.model.attack.XrayControl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -194,6 +195,16 @@ class AttackGraphCalculatorTest {
                 ids.forEach(id -> expectedControl.add(new AttackDelta.Control(stableIds.get(id), square)))));
         assertEquals(expectedControl, control, uci);
         assertTrue(control.stream().allMatch(c -> pieces.containsKey(c.sourceId())));
+        Set<XrayControl> xray = new HashSet<>(before.xrayControl());
+        assertTrue(xray.containsAll(delta.removedXrayControls()));
+        assertTrue(Collections.disjoint(xray, delta.addedXrayControls()));
+        assertTrue(Collections.disjoint(delta.addedXrayControls(), delta.removedXrayControls()));
+        xray.removeAll(delta.removedXrayControls());
+        xray.addAll(delta.addedXrayControls());
+        Set<XrayControl> expectedXray = new HashSet<>();
+        expected.xrayControl().forEach(c -> expectedXray.add(new XrayControl(stableIds.get(c.sourceId()),
+                c.square(), c.throughIds().stream().map(stableIds::get).toList())));
+        assertEquals(expectedXray, xray, uci);
         return new Result(before, delta);
     }
 

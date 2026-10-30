@@ -10,7 +10,9 @@ import java.util.Objects;
 public record AttackDelta(int schemaVersion, String moveUci, List<PieceChange> pieceChanges,
                           List<Relation> addedRelations, List<Relation> removedRelations,
                           @JsonInclude(JsonInclude.Include.NON_NULL) List<Control> addedControls,
-                          @JsonInclude(JsonInclude.Include.NON_NULL) List<Control> removedControls) {
+                          @JsonInclude(JsonInclude.Include.NON_NULL) List<Control> removedControls,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) List<XrayControl> addedXrayControls,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) List<XrayControl> removedXrayControls) {
     public AttackDelta {
         pieceChanges = List.copyOf(pieceChanges);
         addedRelations = List.copyOf(addedRelations);
@@ -20,6 +22,11 @@ public record AttackDelta(int schemaVersion, String moveUci, List<PieceChange> p
         }
         addedControls = addedControls == null ? null : List.copyOf(addedControls);
         removedControls = removedControls == null ? null : List.copyOf(removedControls);
+        if (schemaVersion >= 3 && (addedXrayControls == null || removedXrayControls == null)) {
+            throw new IllegalArgumentException("Schema v3 requires both xray control deltas");
+        }
+        addedXrayControls = addedXrayControls == null ? null : List.copyOf(addedXrayControls);
+        removedXrayControls = removedXrayControls == null ? null : List.copyOf(removedXrayControls);
     }
 
     /** A stable source ID controlling a board square (not a target piece ID). */

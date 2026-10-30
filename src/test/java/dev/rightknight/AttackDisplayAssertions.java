@@ -8,7 +8,7 @@ import java.sql.Connection;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** PostgreSQL-only assertions, invoked after Flyway V18 by PostgresAttackMigrationTest. */
+/** PostgreSQL-only assertions, invoked after Flyway V19 by PostgresAttackMigrationTest. */
 final class AttackDisplayAssertions {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -17,6 +17,8 @@ final class AttackDisplayAssertions {
         assertEquals(1, legacy.path("sourceSchemaVersion").asInt());
         assertFalse(legacy.has("addedControls"));
         assertFalse(legacy.has("removedControls"));
+        assertFalse(legacy.has("addedXrayControls"));
+        assertFalse(legacy.has("removedXrayControls"));
         assertTrue(legacy.path("addedRelations").isEmpty());
         assertEquals("a1", legacy.at("/removedRelations/0/source/square").asText());
         assertEquals("KING", legacy.at("/removedRelations/0/target/type").asText());
@@ -35,7 +37,11 @@ final class AttackDisplayAssertions {
                 {"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", "e1g1"},
                 {"r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1", "e8c8"},
                 {"k6r/6P1/8/8/8/8/8/K7 w - - 0 1", "g7h8q"},
-                {"7k/8/8/8/8/8/8/K7 w - - 0 1", "a1a2"}
+                {"7k/8/8/8/8/8/8/K7 w - - 0 1", "a1a2"},
+                {"7k/8/8/3R4/8/3R4/8/3Q3K w - - 0 1", "d3d4"},
+                {"7k/8/8/3R4/8/3R4/8/3Q3K w - - 0 1", "d3e3"},
+                {"k6r/6P1/8/7R/8/8/8/K7 w - - 0 1", "g7h8q"},
+                {"7k/8/8/8/8/5R2/8/4K2R w K - 0 1", "e1g1"}
         }) {
             var board = new Board();
             board.loadFromFen(example[0]);
@@ -48,11 +54,23 @@ final class AttackDisplayAssertions {
             String deltaJson = MAPPER.writeValueAsString(delta);
             var view = display(connection, snapshotJson, deltaJson);
             var raw = MAPPER.readTree(deltaJson);
-            assertEquals(1, view.path("formatVersion").asInt());
-            assertEquals(2, view.path("sourceSchemaVersion").asInt());
+            var v2Snapshot = (com.fasterxml.jackson.databind.node.ObjectNode) MAPPER.readTree(snapshotJson);
+            v2Snapshot.put("schemaVersion", 2).remove("xrayControl");
+            var v2Delta = (com.fasterxml.jackson.databind.node.ObjectNode) raw.deepCopy();
+            v2Delta.put("schemaVersion", 2).remove(List.of("addedXrayControls", "removedXrayControls"));
+            var v2View = display(connection, v2Snapshot.toString(), v2Delta.toString());
+            assertEquals(1, v2View.path("formatVersion").asInt());
+            assertEquals(2, v2View.path("sourceSchemaVersion").asInt());
+            assertFalse(v2View.has("addedXrayControls"));
+            assertFalse(v2View.has("removedXrayControls"));
+            for (String field : List.of("addedRelations", "removedRelations", "addedControls", "removedControls")) {
+                assertEquals(view.get(field), v2View.get(field));
+            }
+            assertEquals(2, view.path("formatVersion").asInt());
+            assertEquals(3, view.path("sourceSchemaVersion").asInt());
             assertEquals(example[1], view.path("moveUci").asText());
             assertEquals(raw.get("pieceChanges"), view.get("pieceChanges"));
-            for (String field : List.of("addedRelations", "removedRelations", "addedControls", "removedControls")) {
+            for (String field : List.of("addedRelations", "removedRelations", "addedControls", "removedControls", "addedXrayControls", "removedXrayControls")) {
                 assertEquals(raw.get(field).size(), view.get(field).size(), example[1] + " " + field);
                 // Compare actual squares/colors/types to an independently built position snapshot.
                 var position = field.startsWith("added") ? calculator.snapshot(board) : snapshot;
@@ -75,8 +93,26 @@ final class AttackDisplayAssertions {
                         assertEquals(expected.type().name(), piece.get("type").asText());
                         assertEquals(expected.color().name(), piece.get("color").asText());
                     }
+                    if (field.endsWith("XrayControls")) {
+                        assertEquals(rawEdge.get("throughIds").size(), edge.get("through").size());
+                        for (int j = 0; j < edge.get("through").size(); j++) {
+                            var piece = edge.get("through").get(j);
+                            String id = rawEdge.get("throughIds").get(j).asText();
+                            assertEquals(id, piece.get("id").asText());
+                            var expected = snapshot.pieces().get(id);
+                            if (field.startsWith("added")) {
+                                for (var change : delta.pieceChanges()) {
+                                    if (change.pieceId().equals(id)) expected = change.after();
+                                }
+                            }
+                            assertNotNull(expected);
+                            assertEquals(expected.square(), piece.get("square").asText());
+                            assertEquals(expected.type().name(), piece.get("type").asText());
+                            assertEquals(expected.color().name(), piece.get("color").asText());
+                        }
+                    }
                     var withoutDisplay = edge.deepCopy();
-                    ((com.fasterxml.jackson.databind.node.ObjectNode) withoutDisplay).remove(List.of("source", "target"));
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) withoutDisplay).remove(List.of("source", "target", "through"));
                     assertEquals(rawEdge, withoutDisplay);
                 }
             }
@@ -89,7 +125,7 @@ final class AttackDisplayAssertions {
                 assertEquals("QUEEN", defence.at("/target/type").asText());
                 assertEquals("c6", defence.at("/target/square").asText());
             }
-            try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 2")) {
+            try (var update = connection.prepareStatement("UPDATE game_move_analysis SET attack_snapshot_before = ?::jsonb, played_attack_delta = ?::jsonb, attack_features_version = 3")) {
                 update.setString(1, snapshotJson);
                 update.setString(2, deltaJson);
                 update.executeUpdate();

@@ -18,7 +18,7 @@ class SquareControlTest {
     @Test
     void all64SquaresHaveBothColorsIncludingEmptyListsAndMapsAreDeeplyImmutable() {
         var graph = graph("7k/8/8/8/8/8/8/K7 w - - 0 1");
-        assertEquals(2, graph.schemaVersion());
+        assertEquals(3, graph.schemaVersion());
         assertEquals(64, graph.squareControl().size());
         graph.squareControl().values().forEach(s -> assertEquals(Set.of(Side.WHITE, Side.BLACK), s.keySet()));
         assertEquals(Map.of(Side.WHITE, List.of(), Side.BLACK, List.of()), graph.squareControl().get("e5"));
@@ -88,6 +88,9 @@ class SquareControlTest {
         assertEquals(1, snapshot.schemaVersion());
         assertEquals(1, delta.schemaVersion());
         assertNull(snapshot.squareControl());
+        assertNull(snapshot.xrayControl());
+        assertNull(delta.addedXrayControls());
+        assertNull(delta.removedXrayControls());
         assertNull(delta.addedControls());
         assertNull(delta.removedControls());
         assertTrue(snapshot.relations().contains(new Relation(DEFENCE, "a1", "h1")));
@@ -108,8 +111,8 @@ class SquareControlTest {
         assertEquals("a1", json.at("/squareControl/a2/WHITE/0").asText());
         assertTrue(json.at("/squareControl/e5/BLACK").isArray());
         assertEquals(graph, mapper.readValue(json.toString(), AttackSnapshot.class));
-        assertThrows(IllegalArgumentException.class, () -> new AttackSnapshot(2, graph.calculatedKinds(), graph.pieces(), graph.relations(), null));
-        assertThrows(IllegalArgumentException.class, () -> new AttackDelta(2, "a1a2", List.of(), List.of(), List.of(), null, null));
+        assertThrows(IllegalArgumentException.class, () -> new AttackSnapshot(2, graph.calculatedKinds(), graph.pieces(), graph.relations(), null, null));
+        assertThrows(IllegalArgumentException.class, () -> new AttackDelta(2, "a1a2", List.of(), List.of(), List.of(), null, null, null, null));
     }
 
     private AttackSnapshot graph(String fen) {

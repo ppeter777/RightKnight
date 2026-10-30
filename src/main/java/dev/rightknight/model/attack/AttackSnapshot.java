@@ -17,11 +17,16 @@ import java.util.Objects;
 public record AttackSnapshot(int schemaVersion, List<RelationKind> calculatedKinds,
                              Map<String, PieceState> pieces, List<Relation> relations,
                              @JsonInclude(JsonInclude.Include.NON_NULL)
-                             Map<String, Map<Side, List<String>>> squareControl) {
+                             Map<String, Map<Side, List<String>>> squareControl,
+                             @JsonInclude(JsonInclude.Include.NON_NULL) List<XrayControl> xrayControl) {
     public AttackSnapshot {
         calculatedKinds = List.copyOf(calculatedKinds);
         pieces = Collections.unmodifiableMap(new LinkedHashMap<>(pieces));
         relations = List.copyOf(relations);
+        if (schemaVersion >= 3 && xrayControl == null) {
+            throw new IllegalArgumentException("Schema v3 requires xrayControl");
+        }
+        xrayControl = xrayControl == null ? null : List.copyOf(xrayControl);
         // Missing v1 data is unknown, never an empty, calculated control map.
         if (schemaVersion >= 2 && squareControl == null) {
             throw new IllegalArgumentException("Schema v2 requires squareControl");

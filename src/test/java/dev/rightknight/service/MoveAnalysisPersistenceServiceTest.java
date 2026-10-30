@@ -275,7 +275,7 @@ class MoveAnalysisPersistenceServiceTest {
         var saved = persistence.save(analysis(), List.of(candidate(1, "a4a5", 10)), null);
         var loaded = analyses.findById(saved.getId()).orElseThrow();
         var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
-        assertEquals(2, loaded.getAttackFeaturesVersion());
+        assertEquals(3, loaded.getAttackFeaturesVersion());
         assertEquals(saved.getAttackSnapshotBefore(), loaded.getAttackSnapshotBefore());
         assertEquals(saved.getPlayedAttackDelta(), loaded.getPlayedAttackDelta());
         assertEquals("c3d5", loaded.getPlayedAttackDelta().moveUci());
@@ -288,7 +288,27 @@ class MoveAnalysisPersistenceServiceTest {
                 new dev.rightknight.model.attack.AttackDelta.Control("c3", "f6")));
         assertTrue(child.getAttackDelta().addedControls().contains(
                 new dev.rightknight.model.attack.AttackDelta.Control("a4", "b5")));
-        assertEquals(2, child.getAttackDelta().schemaVersion());
+        assertEquals(3, child.getAttackDelta().schemaVersion());
+    }
+
+    @Test
+    void xraySnapshotAndDeltasRoundTripWithPlayedMoveOutsideMultiPv() {
+        move.setFenBefore("7k/8/8/3R4/8/3R4/8/3Q3K w - - 0 1");
+        move.setUci("d3e3");
+        move = moves.save(move);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "d3d4", 0)), null);
+        var parent = analyses.findById(saved.getId()).orElseThrow();
+        var child = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
+        var original = new dev.rightknight.model.attack.XrayControl("d1", "d6", List.of("d3", "d5"));
+        var shorter = new dev.rightknight.model.attack.XrayControl("d1", "d6", List.of("d5"));
+        assertEquals(saved.getAttackSnapshotBefore(), parent.getAttackSnapshotBefore());
+        assertEquals(saved.getPlayedAttackDelta(), parent.getPlayedAttackDelta());
+        assertTrue(parent.getAttackSnapshotBefore().xrayControl().contains(original));
+        assertTrue(parent.getPlayedAttackDelta().removedXrayControls().contains(original));
+        assertTrue(parent.getPlayedAttackDelta().addedXrayControls().contains(shorter));
+        assertEquals("d3d4", child.getAttackDelta().moveUci());
+        assertFalse(child.getAttackDelta().removedXrayControls().isEmpty());
+        assertFalse(child.getAttackDelta().removedXrayControls().contains(original));
     }
 
     @Test
@@ -319,8 +339,9 @@ class MoveAnalysisPersistenceServiceTest {
         assertEquals(36, child.getEvalCp());
     }
 
-    @Test
-    void legacySchema1JsonRoundTripsThroughOrmWithoutInventingControlOrChangingRules() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 2})
+    void legacyJsonRoundTripsThroughOrmWithoutInventingControlOrChangingRules(int version) throws Exception {
         move.setFenBefore("r6k/8/8/8/8/8/8/R6K w - - 0 1");
         move.setUci("a1a2");
         move = moves.save(move);
@@ -331,7 +352,16 @@ class MoveAnalysisPersistenceServiceTest {
                 dev.rightknight.model.attack.AttackSnapshot.class);
         var delta = mapper.readValue(new ClassPathResource("attack-features/v1-delta.json").getContentAsByteArray(),
                 dev.rightknight.model.attack.AttackDelta.class);
-        saved.setAttackFeaturesVersion(1);
+        if (version == 2) {
+            var current = saved.getAttackSnapshotBefore();
+            snapshot = new dev.rightknight.model.attack.AttackSnapshot(2, current.calculatedKinds(),
+                    current.pieces(), current.relations(), current.squareControl(), null);
+            var currentDelta = saved.getPlayedAttackDelta();
+            delta = new dev.rightknight.model.attack.AttackDelta(2, currentDelta.moveUci(), currentDelta.pieceChanges(),
+                    currentDelta.addedRelations(), currentDelta.removedRelations(),
+                    currentDelta.addedControls(), currentDelta.removedControls(), null, null);
+        }
+        saved.setAttackFeaturesVersion(version);
         saved.setAttackSnapshotBefore(snapshot);
         saved.setPlayedAttackDelta(delta);
         analyses.save(saved);
@@ -339,13 +369,22 @@ class MoveAnalysisPersistenceServiceTest {
         candidates.save(child);
         var reloaded = analyses.findById(saved.getId()).orElseThrow();
         var candidate = candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(saved.getId()).getFirst();
-        assertEquals(1, reloaded.getAttackFeaturesVersion());
+        assertEquals(version, reloaded.getAttackFeaturesVersion());
         assertEquals(snapshot, reloaded.getAttackSnapshotBefore());
         assertEquals(delta, reloaded.getPlayedAttackDelta());
         assertEquals(delta, candidate.getAttackDelta());
-        assertNull(reloaded.getAttackSnapshotBefore().squareControl());
-        assertNull(reloaded.getPlayedAttackDelta().addedControls());
-        assertNull(candidate.getAttackDelta().removedControls());
+        assertNull(reloaded.getAttackSnapshotBefore().xrayControl());
+        assertNull(reloaded.getPlayedAttackDelta().addedXrayControls());
+        assertNull(candidate.getAttackDelta().removedXrayControls());
+        if (version == 1) {
+            assertNull(reloaded.getAttackSnapshotBefore().squareControl());
+            assertNull(reloaded.getPlayedAttackDelta().addedControls());
+            assertNull(candidate.getAttackDelta().removedControls());
+        } else {
+            assertNotNull(reloaded.getAttackSnapshotBefore().squareControl());
+            assertNotNull(reloaded.getPlayedAttackDelta().addedControls());
+            assertNotNull(candidate.getAttackDelta().removedControls());
+        }
     }
 
     private void applyGraphMigration() {

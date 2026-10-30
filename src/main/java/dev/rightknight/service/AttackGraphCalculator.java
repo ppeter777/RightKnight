@@ -23,8 +23,8 @@ import java.util.Map;
 
 /** Pure geometric calculation for standard chess. Does not mutate the supplied boards. */
 public final class AttackGraphCalculator {
-    public static final int FEATURES_VERSION = 2;
-    private static final int SCHEMA_VERSION = 2;
+    public static final int FEATURES_VERSION = 3;
+    private static final int SCHEMA_VERSION = 3;
     private static final List<RelationKind> KINDS = List.of(RelationKind.ATTACK, RelationKind.DEFENCE);
 
     public AttackSnapshot snapshot(Board board) {
@@ -72,11 +72,15 @@ public final class AttackGraphCalculator {
         var newControls = new HashSet<>(afterControls);
         var oldSet = new HashSet<>(before.relations());
         var newSet = new HashSet<>(afterRelations);
+        var oldXray = new HashSet<>(before.xrayControl());
+        var newXray = new HashSet<>(after.xrayControl());
         return new AttackDelta(SCHEMA_VERSION, move.toString(), changes,
                 afterRelations.stream().filter(r -> !oldSet.contains(r)).toList(),
                 before.relations().stream().filter(r -> !newSet.contains(r)).toList(),
                 afterControls.stream().filter(c -> !oldControls.contains(c)).toList(),
-                beforeControls.stream().filter(c -> !newControls.contains(c)).toList());
+                beforeControls.stream().filter(c -> !newControls.contains(c)).toList(),
+                after.xrayControl().stream().filter(c -> !oldXray.contains(c)).toList(),
+                before.xrayControl().stream().filter(c -> !newXray.contains(c)).toList());
     }
 
     private AttackSnapshot graph(Board board, Map<String, PieceState> pieces) {
@@ -103,7 +107,8 @@ public final class AttackGraphCalculator {
                 sources.forEach(source -> relations.add(new Relation(kind, source, target.getKey())));
             });
         }
-        return new AttackSnapshot(SCHEMA_VERSION, KINDS, pieces, relations, control);
+        return new AttackSnapshot(SCHEMA_VERSION, KINDS, pieces, relations, control,
+                XrayControlCalculator.calculate(pieces));
     }
 
     private List<Control> controls(AttackSnapshot snapshot) {
