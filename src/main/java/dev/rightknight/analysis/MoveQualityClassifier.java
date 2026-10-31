@@ -32,7 +32,7 @@ public class MoveQualityClassifier {
     }
 
     private LossCategory classifyLoss(Integer lossCp) {
-        return LossPolicy.v1().classify(lossCp == null ? null : lossCp.longValue());
+        return LossPolicy.v2().classify(lossCp == null ? null : lossCp.longValue());
     }
 
     private double calculateMoveTimeRatio(GameMoveEntity move, Long expectedMoveTime) {

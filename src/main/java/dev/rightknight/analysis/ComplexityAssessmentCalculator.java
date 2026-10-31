@@ -26,7 +26,7 @@ public class ComplexityAssessmentCalculator {
     public ComplexityAssessment calculate(GameMoveAnalysisEntity analysis,
             List<GameMoveAnalysisCandidateEntity> candidates, String fenBefore,
             Integer requestedMultiPv, int topPvLimit) {
-        return calculate(analysis, candidates, fenBefore, requestedMultiPv, topPvLimit, LossPolicy.v1());
+        return calculate(analysis, candidates, fenBefore, requestedMultiPv, topPvLimit, LossPolicy.v2());
     }
 
     public ComplexityAssessment calculate(GameMoveAnalysisEntity analysis,

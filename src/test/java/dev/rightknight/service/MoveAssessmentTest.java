@@ -71,7 +71,7 @@ public class MoveAssessmentTest {
     }
 
     @Test
-    void smallLossSharesInaccuracyBand() {
+    void smallLossIsAccurate() {
         gameMoveAnalysisEntity.setLossCp(10);
         long initialTimeMs = 180000L;
         long incrementMs = 2000L;
@@ -80,7 +80,7 @@ public class MoveAssessmentTest {
         Long expectedMoveTime = moveTimeCalculator.calculateBaseExpectedTimeMs(initialTimeMs, incrementMs, 40);
         var moveQuality = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, expectedMoveTime);
 
-        assertEquals(LossCategory.INACCURACY, moveQuality.lossCategory());
+        assertEquals(LossCategory.ACCURATE, moveQuality.lossCategory());
         assertEquals(TimeUsageCategory.FAST, moveQuality.timeUsageCategory());
 
     }

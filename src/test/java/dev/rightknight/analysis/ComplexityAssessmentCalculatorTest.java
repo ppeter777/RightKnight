@@ -18,11 +18,11 @@ class ComplexityAssessmentCalculatorTest {
     private static final String START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     @ParameterizedTest
-    @CsvSource({"0, INACCURACY", "19, INACCURACY", "20, INACCURACY", "49, INACCURACY",
+    @CsvSource({"0, ACCURATE", "19, ACCURATE", "20, INACCURACY", "49, INACCURACY",
             "50, MISTAKE", "99, MISTAKE", "100, BLUNDER", "199, BLUNDER", "200, CRITICAL_BLUNDER", "1000, CRITICAL_BLUNDER"})
     void sharedLossPolicyHonorsEveryBoundary(long loss, LossCategory expected) {
-        assertEquals(expected, LossPolicy.v1().classify(loss));
-        assertEquals(loss < 50, LossPolicy.v1().acceptable(loss));
+        assertEquals(expected, LossPolicy.v2().classify(loss));
+        assertEquals(loss < 50, LossPolicy.v2().acceptable(loss));
         var analysis = root();
         analysis.setLossCp((int) loss);
         assertEquals(expected, new MoveQualityClassifier().classify(new GameMoveEntity(), analysis, 1000L).lossCategory());
@@ -50,7 +50,8 @@ class ComplexityAssessmentCalculatorTest {
         assertEquals(49L, result.bestSecondGapCp());
         assertTrue(result.window().ranksComplete());
         assertEquals(3, result.window().observedCandidateCount());
-        assertEquals(List.of(1, 2), result.window().lossCategoryRanks().get(LossCategory.INACCURACY));
+        assertEquals(List.of(1), result.window().lossCategoryRanks().get(LossCategory.ACCURATE));
+        assertEquals(List.of(2), result.window().lossCategoryRanks().get(LossCategory.INACCURACY));
         assertEquals(List.of(3), result.window().lossCategoryRanks().get(LossCategory.MISTAKE));
         var checks = result.window().moveCategoryRanks().get(GIVES_CHECK);
         assertEquals(List.of(1, 3), checks.presentRanks());
@@ -182,15 +183,15 @@ class ComplexityAssessmentCalculatorTest {
     @Test
     void customPolicyIsExplicitAndLargeScoreDifferencesDoNotOverflow() {
         var candidates = List.of(c(1, "e2e4", 0), c(2, "d2d4", -49));
-        var stricter = new LossPolicy("experiment-30", 30, 60, 120);
+        var stricter = new LossPolicy("experiment-30", 20, 30, 60, 120);
         var result = calculator.calculate(root(), candidates, START, 5, 5, stricter);
         assertEquals(stricter, result.lossPolicy());
         assertEquals(1, result.acceptableCandidateCount());
         var large = assess(root(), List.of(c(1, "e2e4", Integer.MAX_VALUE), c(2, "d2d4", Integer.MIN_VALUE)), START, 2);
         assertEquals(4294967295L, large.bestSecondGapCp());
         assertEquals(LossCategory.CRITICAL_BLUNDER, large.candidates().get(1).lossCategory());
-        assertThrows(IllegalArgumentException.class, () -> LossPolicy.v1().classify(-1L));
-        assertThrows(IllegalArgumentException.class, () -> new LossPolicy("bad", 50, 50, 200));
+        assertThrows(IllegalArgumentException.class, () -> LossPolicy.v2().classify(-1L));
+        assertThrows(IllegalArgumentException.class, () -> new LossPolicy("bad", 20, 50, 50, 200));
     }
 
     private void assertUnknown(GameMoveAnalysisCandidateEntity first, GameMoveAnalysisCandidateEntity second,
