@@ -27,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({MoveAnalysisPersistenceService.class, MoveContextCalculator.class})
+@Import({MoveAnalysisPersistenceService.class, MoveContextCalculator.class, ComplexityAssessmentService.class,
+        dev.rightknight.analysis.ComplexityAssessmentCalculator.class, dev.rightknight.analysis.PositionComplexityCalculator.class,
+        dev.rightknight.analysis.MoveFeatureClassifier.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class MoveAnalysisPersistenceServiceTest {
     @Autowired private MoveAnalysisPersistenceService persistence;
@@ -37,6 +39,7 @@ class MoveAnalysisPersistenceServiceTest {
     @Autowired private GameMoveAnalysisRepository analyses;
     @Autowired private GameMoveAnalysisCandidateRepository candidates;
     @Autowired private DataSource dataSource;
+    @Autowired private ComplexityAssessmentService complexity;
     private GameMoveEntity move;
     private GameAnalysisEntity run;
 
@@ -62,6 +65,36 @@ class MoveAnalysisPersistenceServiceTest {
         run = new GameAnalysisEntity();
         run.setGame(game);
         run = runs.save(run);
+    }
+
+    @Test
+    void assessesPersistedCandidatesWithoutEngineWorkAndKeepsRunIdentity() throws Exception {
+        move.setFenBefore("r1bqkb1r/pp3ppp/n3p3/3pPn2/3p4/N1P2N2/PP2BPPP/R1BQ1RK1 w kq - 0 10");
+        move.setUci("c3d4");
+        move = moves.save(move);
+        run.setMultiPv(5);
+        run = runs.save(run);
+        var saved = persistence.save(analysis(), List.of(candidate(1, "f3d4", 100), candidate(2, "c3d4", 90),
+                candidate(3, "c1g5", 51), candidate(4, "g2g4", 50), candidate(5, "e2a6", -100)), null);
+        long rowsBefore = analyses.count();
+        var assessment = complexity.assess(saved.getId(), 5);
+        assertEquals(5, assessment.requestedMultiPv());
+        assertEquals(3, assessment.acceptableCandidateCount());
+        assertFalse(assessment.candidateSetComplete());
+        var attacks = assessment.window().moveCategoryRanks().get(dev.rightknight.analysis.CandidateMoveCategory.NEW_ATTACK_ON_MORE_VALUABLE_PIECE);
+        assertEquals(List.of(3, 4), attacks.presentRanks());
+        assertEquals(List.of(3), attacks.acceptableRanks());
+        assertEquals(List.of(4), assessment.window().moveCategoryRanks().get(dev.rightknight.analysis.CandidateMoveCategory.NEW_PAWN_ATTACK_ON_PIECE).presentRanks());
+        assertEquals(rowsBefore, analyses.count());
+        // A different analysis of the same game move must not contribute its scores.
+        var anotherRun = new GameAnalysisEntity();
+        anotherRun.setGame(move.getGame());
+        run = runs.save(anotherRun);
+        var another = persistence.save(analysis(), List.of(candidate(1, "c3d4", 0)), null);
+        assertEquals(1, complexity.assess(another.getId(), 5).analyzedCandidateCount());
+        assertEquals(assessment, complexity.assess(saved.getId(), 5));
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals(assessment, mapper.readValue(mapper.writeValueAsString(assessment), dev.rightknight.analysis.ComplexityAssessment.class));
     }
 
     @Test
