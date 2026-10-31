@@ -27,7 +27,7 @@ public class MoveAssessmentTest {
     }
 
     @Test
-    void severeLossFastMove() {
+    void blunderLossFastMove() {
 
         gameMoveAnalysisEntity.setLossCp(100);
         long initialTimeMs = 180000L;
@@ -36,12 +36,12 @@ public class MoveAssessmentTest {
         Long expectedMoveTime = moveTimeCalculator.calculateBaseExpectedTimeMs(initialTimeMs, incrementMs, 40);
         var moveQuality = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, expectedMoveTime);
 
-        assertEquals(LossCategory.SEVERE, moveQuality.lossCategory());
+        assertEquals(LossCategory.BLUNDER, moveQuality.lossCategory());
         assertEquals(TimeUsageCategory.FAST, moveQuality.timeUsageCategory());
     }
 
     @Test
-    void significantLossNormalMove() {
+    void mistakeLossNormalMove() {
 
         gameMoveAnalysisEntity.setLossCp(60);
         long initialTimeMs = 180000L;
@@ -50,13 +50,13 @@ public class MoveAssessmentTest {
         Long expectedMoveTime = moveTimeCalculator.calculateBaseExpectedTimeMs(initialTimeMs, incrementMs, 40);
         var moveQuality = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, expectedMoveTime);
 
-        assertEquals(LossCategory.SIGNIFICANT, moveQuality.lossCategory());
+        assertEquals(LossCategory.MISTAKE, moveQuality.lossCategory());
         assertEquals(TimeUsageCategory.NORMAL, moveQuality.timeUsageCategory());
 
     }
 
     @Test
-    void smallLossLongMove() {
+    void inaccuracyLossLongMove() {
 
         gameMoveAnalysisEntity.setLossCp(30);
         long initialTimeMs = 180000L;
@@ -65,13 +65,13 @@ public class MoveAssessmentTest {
         Long expectedMoveTime = moveTimeCalculator.calculateBaseExpectedTimeMs(initialTimeMs, incrementMs, 40);
         var moveQuality = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, expectedMoveTime);
 
-        assertEquals(LossCategory.SMALL, moveQuality.lossCategory());
+        assertEquals(LossCategory.INACCURACY, moveQuality.lossCategory());
         assertEquals(TimeUsageCategory.LONG, moveQuality.timeUsageCategory());
 
     }
 
     @Test
-    void negligibleLossFastMove() {
+    void smallLossSharesInaccuracyBand() {
         gameMoveAnalysisEntity.setLossCp(10);
         long initialTimeMs = 180000L;
         long incrementMs = 2000L;
@@ -80,13 +80,13 @@ public class MoveAssessmentTest {
         Long expectedMoveTime = moveTimeCalculator.calculateBaseExpectedTimeMs(initialTimeMs, incrementMs, 40);
         var moveQuality = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, expectedMoveTime);
 
-        assertEquals(LossCategory.NEGLIGIBLE, moveQuality.lossCategory());
+        assertEquals(LossCategory.INACCURACY, moveQuality.lossCategory());
         assertEquals(TimeUsageCategory.FAST, moveQuality.timeUsageCategory());
 
     }
 
     @Test
-    void missingCpLossIsUnknownRatherThanNegligible() {
+    void missingCpLossIsUnknown() {
         var assessment = moveQualityClassifier.classify(move, gameMoveAnalysisEntity, 1000L);
         assertEquals(LossCategory.UNKNOWN, assessment.lossCategory());
         org.junit.jupiter.api.Assertions.assertNull(assessment.lossCp());

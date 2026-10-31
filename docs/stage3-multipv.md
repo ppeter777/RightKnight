@@ -26,7 +26,7 @@ its own candidates. Read candidates in `pv_rank` order through
   evaluated from the board so the final played move can still be saved.
 - A CP loss involving mate or bounded scores is unavailable (null), except a
   played rank-1 move retains zero loss. `LossCategory.UNKNOWN` represents missing
-  CP loss; it must not silently become NEGLIGIBLE.
+  CP loss; it must not silently become a known low-loss category.
 
 ## Migration and rollout
 

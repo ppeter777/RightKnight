@@ -32,19 +32,7 @@ public class MoveQualityClassifier {
     }
 
     private LossCategory classifyLoss(Integer lossCp) {
-        if (lossCp == null) {
-            return LossCategory.UNKNOWN;
-        }
-        if (lossCp < 20) {
-            return LossCategory.NEGLIGIBLE;
-        }
-        if (lossCp < 50) {
-            return LossCategory.SMALL;
-        }
-        if (lossCp < 100) {
-            return LossCategory.SIGNIFICANT;
-        }
-        return LossCategory.SEVERE;
+        return LossPolicy.v1().classify(lossCp == null ? null : lossCp.longValue());
     }
 
     private double calculateMoveTimeRatio(GameMoveEntity move, Long expectedMoveTime) {

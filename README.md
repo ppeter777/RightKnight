@@ -70,3 +70,5 @@ make build                # сборка без тестов
 Основной код находится в `src/main/java/dev/rightknight`, шаблоны — в `src/main/jte`, миграции — в `src/main/resources/db/migration`. Текущий план развития анализа описан в [`docs/roadmap-analysis.md`](docs/roadmap-analysis.md), а замысел сервиса — в [`Vision2_0.md`](Vision2_0.md).
 
 [Словарь анализа](docs/analysis-dictionary.md) определяет термины, метрики, признаки и события, ограничения MultiPV и правила ведения этой документации. В нём отдельно отмечены реализованные показатели и предложения для следующих этапов.
+
+Диагностическая оценка сложности по кандидатам: [ComplexityAssessment v1](docs/complexity-assessment.md).

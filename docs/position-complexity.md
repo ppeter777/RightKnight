@@ -77,3 +77,9 @@ OTHER_CAPTURE and RECAPTURE are mutually exclusive. Either can coexist with CAPT
 These categories do not depend on PV rank, centipawn evaluation, mate score, material value or the move actually played. They describe a candidate, not its quality. A losing capture may still be OTHER_CAPTURE. Taking a defended minor piece with a queen is not labelled a sacrifice: defenders, exchanges and forced mating continuations need separate analysis. Likewise, no new attack or tactical-motif recognition is introduced here. complexityFactor remains 1.0.
 
 Candidate tests cover overlaps, unknowns, quiet moves, rank/score independence, and contradictions. An integration fixture verifies both Bxa3 (OTHER_CAPTURE) and Rxd4 (RECAPTURE) after ...Rxd4 using the existing chesslib context calculation. The existing integration suite also covers en passant, pins and promotion recaptures.
+
+## Diagnostic candidate assessment
+
+[ComplexityAssessment v1](complexity-assessment.md) combines these position features
+with ranked candidate loss bands and move categories. It preserves unknown data,
+reports MultiPV coverage and keeps complexityFactor neutral.
