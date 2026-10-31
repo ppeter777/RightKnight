@@ -1,19 +1,20 @@
 package dev.rightknight.analysis;
 
-/** Provisional loss bands, not claims that a zero-loss move is an actual inaccuracy. */
-public record LossPolicy(String version, int mistakeFromCp, int blunderFromCp, int criticalFromCp) {
+/** Versioned provisional loss bands. */
+public record LossPolicy(String version, int inaccuracyFromCp, int mistakeFromCp, int blunderFromCp, int criticalFromCp) {
     public LossPolicy {
-        if (version == null || version.isBlank() || mistakeFromCp <= 0
+        if (version == null || version.isBlank() || inaccuracyFromCp <= 0 || mistakeFromCp <= inaccuracyFromCp
                 || blunderFromCp <= mistakeFromCp || criticalFromCp <= blunderFromCp) {
             throw new IllegalArgumentException("Invalid loss policy");
         }
     }
 
-    public static LossPolicy v1() { return new LossPolicy("cp-loss-v1", 50, 100, 200); }
+    public static LossPolicy v2() { return new LossPolicy("cp-loss-v2", 20, 50, 100, 200); }
 
     public LossCategory classify(Long lossCp) {
         if (lossCp == null) return LossCategory.UNKNOWN;
         if (lossCp < 0) throw new IllegalArgumentException("Loss cannot be negative");
+        if (lossCp < inaccuracyFromCp) return LossCategory.ACCURATE;
         if (lossCp < mistakeFromCp) return LossCategory.INACCURACY;
         if (lossCp < blunderFromCp) return LossCategory.MISTAKE;
         if (lossCp < criticalFromCp) return LossCategory.BLUNDER;
@@ -21,6 +22,8 @@ public record LossPolicy(String version, int mistakeFromCp, int blunderFromCp, i
     }
 
     public Boolean acceptable(Long lossCp) {
-        return lossCp == null ? null : classify(lossCp) == LossCategory.INACCURACY;
+        if (lossCp == null) return null;
+        var category = classify(lossCp);
+        return category == LossCategory.ACCURATE || category == LossCategory.INACCURACY;
     }
 }
