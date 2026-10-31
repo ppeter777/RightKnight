@@ -12,7 +12,7 @@ public record ComplexityAssessment(
         Long bestSecondGapCp, Set<UnknownReason> gapUnknownReasons,
         Integer acceptableCandidateCount, Double acceptableCandidateRatio,
         Set<UnknownReason> unknownReasons, List<CandidateAssessment> candidates,
-        RankWindow window, double complexityFactor) {
+        RankWindow window, ComplexityExplanations explanations, double complexityFactor) {
     public ComplexityAssessment {
         gapUnknownReasons = Set.copyOf(gapUnknownReasons);
         unknownReasons = Set.copyOf(unknownReasons);

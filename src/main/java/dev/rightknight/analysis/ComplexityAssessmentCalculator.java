@@ -14,7 +14,7 @@ import static dev.rightknight.analysis.ComplexityAssessment.UnknownReason.*;
 /** Reads only supplied data. No engine calls, DB access, played-move quality or solve-time input. */
 @Component
 public class ComplexityAssessmentCalculator {
-    public static final String MODEL_VERSION = "complexity-diagnostic-v1";
+    public static final String MODEL_VERSION = "complexity-diagnostic-v2";
     private final PositionComplexityCalculator positions;
     private final MoveFeatureClassifier moves;
 
@@ -32,6 +32,12 @@ public class ComplexityAssessmentCalculator {
     public ComplexityAssessment calculate(GameMoveAnalysisEntity analysis,
             List<GameMoveAnalysisCandidateEntity> candidates, String fenBefore,
             Integer requestedMultiPv, int topPvLimit, LossPolicy policy) {
+        return calculate(analysis, candidates, fenBefore, requestedMultiPv, topPvLimit, policy, 100);
+    }
+
+    public ComplexityAssessment calculate(GameMoveAnalysisEntity analysis,
+            List<GameMoveAnalysisCandidateEntity> candidates, String fenBefore,
+            Integer requestedMultiPv, int topPvLimit, LossPolicy policy, int advantageThresholdCp) {
         Objects.requireNonNull(analysis, "analysis");
         Objects.requireNonNull(policy, "policy");
         if (topPvLimit <= 0 || requestedMultiPv != null && requestedMultiPv <= 0) {
@@ -119,7 +125,8 @@ public class ComplexityAssessmentCalculator {
         return new ComplexityAssessment(MODEL_VERSION, policy, requestedMultiPv, results.size(),
                 legal == null ? null : legal.keySet().equals(ucis), positions.calculate(analysis), gap, gapReasons,
                 acceptable, acceptable == null ? null : acceptable / (double) results.size(), allReasons, results,
-                new RankWindow(topPvLimit, windowComplete, inWindow.size(), acceptableCount(inWindow), lossRanks, featureRanks), 1.0);
+                new RankWindow(topPvLimit, windowComplete, inWindow.size(), acceptableCount(inWindow), lossRanks, featureRanks),
+                ComplexityExplanations.calculate(analysis, results, legal == null ? null : legal.keySet().equals(ucis), advantageThresholdCp), 1.0);
     }
 
     private static Integer acceptableCount(List<CandidateAssessment> candidates) {
