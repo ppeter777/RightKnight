@@ -18,9 +18,15 @@ public class ComplexityAssessmentService {
 
     @Transactional(readOnly = true)
     public ComplexityAssessment assess(long analysisId, int topPvLimit) {
+        return assess(analysisId, topPvLimit, 100);
+    }
+
+    @Transactional(readOnly = true)
+    public ComplexityAssessment assess(long analysisId, int topPvLimit, int advantageThresholdCp) {
         var analysis = analyses.findById(analysisId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown move analysis: " + analysisId));
         return calculator.calculate(analysis, candidates.findByGameMoveAnalysis_IdOrderByPvRankAsc(analysisId),
-                analysis.getGameMove().getFenBefore(), analysis.getGameAnalysis().getMultiPv(), topPvLimit);
+                analysis.getGameMove().getFenBefore(), analysis.getGameAnalysis().getMultiPv(), topPvLimit,
+                dev.rightknight.analysis.LossPolicy.v2(), advantageThresholdCp);
     }
 }

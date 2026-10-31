@@ -203,6 +203,61 @@ class ComplexityAssessmentCalculatorTest {
         assertTrue(result.gapUnknownReasons().contains(reason));
     }
 
+    @Test
+    void explainsObservedChoicesWithoutEquatingThemToFullPositionCoverage() {
+        var broad = assess(root(), List.of(c(1, "e2e4", 0), c(2, "d2d4", -20)), START, 1);
+        assertPattern(broad, ComplexityExplanations.Rule.ALL_OBSERVED_CANDIDATES_ACCEPTABLE, ComplexityExplanations.Status.PRESENT);
+        assertFalse(broad.explanations().candidateSetComplete());
+        assertEquals(2, broad.explanations().analyzedCandidateCount()); // uses all observed, not top-1 window
+        var narrow = assess(root(), List.of(c(1, "e2e4", 0), c(2, "d2d4", -49), c(3, "c2c4", -50)), START, 3);
+        assertPattern(narrow, ComplexityExplanations.Rule.TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.PRESENT);
+        assertPattern(broad, ComplexityExplanations.Rule.TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.ABSENT);
+        var unknown = assess(root(), List.of(c(1, "e2e4", 0), c(2, "d2d4", null)), START, 2);
+        assertPattern(unknown, ComplexityExplanations.Rule.ALL_OBSERVED_CANDIDATES_ACCEPTABLE, ComplexityExplanations.Status.UNKNOWN);
+    }
+
+    @Test
+    void recaptureEvidenceIncludesNumberOfLegalWaysToRecapture() {
+        var root = root();
+        root.setPreviousMoveCapture(true);
+        root.setCaptureMovesCount(2);
+        root.setRecaptureMovesCount(2);
+        var best = c(1, "e2e4", 0);
+        best.setCapture(true);
+        best.setRecapture(true);
+        var result = assess(root, List.of(best, c(2, "d2d4", -50)), null, 2);
+        assertPattern(result, ComplexityExplanations.Rule.ONLY_ACCEPTABLE_OBSERVED_MOVE_IS_RECAPTURE, ComplexityExplanations.Status.PRESENT);
+        assertEquals(2, result.explanations().recaptureMovesCount());
+        assertEquals(List.of(1), result.explanations().acceptableRanks());
+        best.setRecapture(null);
+        assertPattern(assess(root, List.of(best, c(2, "d2d4", -50)), null, 2),
+                ComplexityExplanations.Rule.ONLY_ACCEPTABLE_OBSERVED_MOVE_IS_RECAPTURE, ComplexityExplanations.Status.UNKNOWN);
+    }
+
+    @Test
+    void onlyOneActiveAdvantageIsSeparateFromAcceptabilityAndHasConfigurableThreshold() {
+        var best = c(1, "e2e4", 100);
+        best.setGivesCheck(true);
+        var other = c(2, "d2d4", 99);
+        other.setCapture(true);
+        var result = assess(root(), List.of(best, other), null, 2);
+        assertEquals(2, result.acceptableCandidateCount());
+        assertPattern(result, ComplexityExplanations.Rule.ONLY_ONE_ACTIVE_CONTINUATION_HAS_ADVANTAGE, ComplexityExplanations.Status.PRESENT);
+        assertEquals(List.of(1, 2), result.explanations().activeRanks());
+        assertEquals(List.of(1), result.explanations().advantageousActiveRanks());
+        var lowerThreshold = calculator.calculate(root(), List.of(best, other), null, 5, 2, LossPolicy.v2(), 99);
+        assertPattern(lowerThreshold, ComplexityExplanations.Rule.ONLY_ONE_ACTIVE_CONTINUATION_HAS_ADVANTAGE, ComplexityExplanations.Status.ABSENT);
+        other.setCapture(false);
+        other.setGivesCheck(null);
+        assertPattern(assess(root(), List.of(best, other), null, 2), ComplexityExplanations.Rule.ONLY_ONE_ACTIVE_CONTINUATION_HAS_ADVANTAGE, ComplexityExplanations.Status.UNKNOWN);
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculate(root(), List.of(best), null, 5, 2, LossPolicy.v2(), 0));
+        assertThrows(UnsupportedOperationException.class, () -> result.explanations().activeRanks().clear());
+    }
+
+    private void assertPattern(ComplexityAssessment result, ComplexityExplanations.Rule rule, ComplexityExplanations.Status status) {
+        assertEquals(status, result.explanations().explanations().stream().filter(e -> e.rule() == rule).findFirst().orElseThrow().status());
+    }
+
     private ComplexityAssessment assess(GameMoveAnalysisEntity root, List<GameMoveAnalysisCandidateEntity> candidates,
                                          String fen, int top) {
         return calculator.calculate(root, candidates, fen, 5, top);
