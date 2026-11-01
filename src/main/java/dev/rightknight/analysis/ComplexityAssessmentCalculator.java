@@ -14,7 +14,7 @@ import static dev.rightknight.analysis.ComplexityAssessment.UnknownReason.*;
 /** Reads only supplied data. No engine calls, DB access, played-move quality or solve-time input. */
 @Component
 public class ComplexityAssessmentCalculator {
-    public static final String MODEL_VERSION = "complexity-diagnostic-v2";
+    public static final String MODEL_VERSION = "complexity-diagnostic-v3";
     private final PositionComplexityCalculator positions;
     private final MoveFeatureClassifier moves;
 
