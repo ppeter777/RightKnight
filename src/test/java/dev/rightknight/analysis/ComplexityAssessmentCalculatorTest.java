@@ -210,10 +210,39 @@ class ComplexityAssessmentCalculatorTest {
         assertFalse(broad.explanations().candidateSetComplete());
         assertEquals(2, broad.explanations().analyzedCandidateCount()); // uses all observed, not top-1 window
         var narrow = assess(root(), List.of(c(1, "e2e4", 0), c(2, "d2d4", -49), c(3, "c2c4", -50)), START, 3);
-        assertPattern(narrow, ComplexityExplanations.Rule.TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.PRESENT);
-        assertPattern(broad, ComplexityExplanations.Rule.TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.ABSENT);
+        assertPattern(narrow, ComplexityExplanations.Rule.MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.PRESENT);
+        assertPattern(broad, ComplexityExplanations.Rule.MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, ComplexityExplanations.Status.ABSENT);
         var unknown = assess(root(), List.of(c(1, "e2e4", 0), c(2, "d2d4", null)), START, 2);
         assertPattern(unknown, ComplexityExplanations.Rule.ALL_OBSERVED_CANDIDATES_ACCEPTABLE, ComplexityExplanations.Status.UNKNOWN);
+    }
+
+    @Test
+    void multipleAcceptableAlternativesHaveNoUpperBoundAndExplainObservedCounts() {
+        var ucis = List.of("e2e4", "d2d4", "c2c4", "g1f3", "b1c3");
+        for (int acceptable = 1; acceptable <= 5; acceptable++) {
+            var candidates = new java.util.ArrayList<GameMoveAnalysisCandidateEntity>();
+            for (int i = 0; i < ucis.size(); i++) {
+                candidates.add(c(i + 1, ucis.get(i), i == 0 ? 0 : i < acceptable ? -49 : -50));
+            }
+            var result = assess(root(), candidates, START, 1); // all candidates, not only the top-1 window
+            var rule = ComplexityExplanations.Rule.MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES;
+            assertPattern(result, rule, acceptable >= 2 && acceptable < 5
+                    ? ComplexityExplanations.Status.PRESENT : ComplexityExplanations.Status.ABSENT);
+            assertEquals(8, result.explanations().explanations().size());
+            if (acceptable == 4) {
+                assertEquals("Рассмотрено продолжений: 5; приемлемых: 4; за порогом приемлемости: 1.",
+                        result.explanations().explanations().stream()
+                                .filter(e -> e.rule() == rule).findFirst().orElseThrow().reason());
+                candidates.getLast().setEvalCp(null);
+                var unknown = assess(root(), candidates, START, 1);
+                assertPattern(unknown, rule, ComplexityExplanations.Status.UNKNOWN);
+                assertFalse(unknown.explanations().explanations().stream()
+                        .filter(e -> e.rule() == rule).findFirst().orElseThrow().reason().contains("приемлемых: 4"));
+            }
+        }
+        assertPattern(assess(root(), List.of(), START, 5),
+                ComplexityExplanations.Rule.MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES,
+                ComplexityExplanations.Status.UNKNOWN);
     }
 
     @Test

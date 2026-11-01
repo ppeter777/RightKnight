@@ -28,7 +28,7 @@ public record ComplexityExplanations(String version, int advantageThresholdCp,
         SINGLE_LEGAL_RECAPTURE_IS_ONLY_ACCEPTABLE_OBSERVED_MOVE,
         MULTIPLE_LEGAL_RECAPTURES_ONLY_ONE_ACCEPTABLE_OBSERVED_MOVE,
         MULTIPLE_ACCEPTABLE_OBSERVED_MOVES_ALL_RECAPTURES,
-        TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES,
+        MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES,
         ONLY_ONE_ACTIVE_CONTINUATION_HAS_ADVANTAGE
     }
     public enum Status { PRESENT, ABSENT, UNKNOWN }
@@ -88,14 +88,17 @@ public record ComplexityExplanations(String version, int advantageThresholdCp,
         output.add(explain(Rule.MULTIPLE_ACCEPTABLE_OBSERVED_MOVES_ALL_RECAPTURES,
                 and(analysis.getPreviousMoveCapture(), qualityKnown ? accepted.size() >= 2 : null, allAcceptedRecaptures),
                 "Среди рассмотренных ходов приемлемы несколько, и все они — ответные взятия; полнота охвата ответных взятий указана отдельно."));
-        output.add(explain(Rule.TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES,
-                qualityKnown ? accepted.size() >= 2 && accepted.size() <= 3 && accepted.size() < candidates.size() : null,
-                "Среди рассмотренных ходов приемлемы два или три, остальные выходят за порог приемлемости."));
+        output.add(explain(Rule.MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES,
+                qualityKnown ? accepted.size() >= 2 && accepted.size() < candidates.size() : null,
+                qualityKnown && accepted.size() >= 2 && accepted.size() < candidates.size()
+                        ? "Рассмотрено продолжений: %d; приемлемых: %d; за порогом приемлемости: %d."
+                                .formatted(candidates.size(), accepted.size(), candidates.size() - accepted.size())
+                        : "Среди рассмотренных ходов приемлемы как минимум два, и есть хотя бы одна неприемлемая альтернатива."));
         boolean activityKnown = candidates.stream().allMatch(c -> active(c) != null);
         output.add(explain(Rule.ONLY_ONE_ACTIVE_CONTINUATION_HAS_ADVANTAGE,
                 qualityKnown && activityKnown ? active.size() >= 2 && advantageous.size() == 1 : null,
                 "Из нескольких активных корневых ходов только один достигает заданного порога преимущества; тихие ходы проверяются отдельно в списке кандидатов."));
-        return new ComplexityExplanations("observed-patterns-v2", advantageThresholdCp, candidates.size(), complete,
+        return new ComplexityExplanations("observed-patterns-v3", advantageThresholdCp, candidates.size(), complete,
                 legalRecaptures, recapturesComplete, ranks(recaptures),
                 ranks(recaptures.stream().filter(c -> Boolean.TRUE.equals(c.acceptable())).toList()),
                 ranks(unknownRecaptures), ranks(accepted), ranks(active), ranks(advantageous), output);
