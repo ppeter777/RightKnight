@@ -71,7 +71,7 @@ class RecaptureExplanationTest {
         var candidates = candidates(f, Map.of("c1c2", 100, "d2c2", 90), true);
         var result = assess(f, candidates);
         assertStatus(result, MULTIPLE_ACCEPTABLE_OBSERVED_MOVES_ALL_RECAPTURES, PRESENT);
-        assertStatus(result, TWO_OR_THREE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, PRESENT);
+        assertStatus(result, MULTIPLE_ACCEPTABLE_WITH_WORSE_ALTERNATIVES, PRESENT);
         assertStatus(result, ONLY_ONE_ACCEPTABLE_OBSERVED_MOVE, ABSENT);
         assertTrue(result.explanations().recapturesFullyAnalyzed());
         assertEquals(List.of(1, 2), result.explanations().acceptableRecaptureRanks());
