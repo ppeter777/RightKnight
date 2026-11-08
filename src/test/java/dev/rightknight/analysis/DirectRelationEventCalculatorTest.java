@@ -94,6 +94,8 @@ class DirectRelationEventCalculatorTest {
         var events = line("r6k/8/8/8/8/8/8/R6K w - - 0 1", "a1a2").events();
         assertEquals(AVAILABLE, events.status());
         assertTrue(events.targets().isEmpty());
+        assertEquals(AVAILABLE, events.batteries().status());
+        assertTrue(events.batteries().changes().isEmpty());
     }
 
     @Test
@@ -107,6 +109,8 @@ class DirectRelationEventCalculatorTest {
         var events = calculator.calculate("e5e6", root, delta);
         assertEquals(AVAILABLE, events.status());
         assertEquals(List.of(ATTACK), events.calculatedKinds());
+        assertEquals(MISSING_DATA, events.batteries().status());
+        assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).batteries().status());
         var bishop = events.targets().stream().filter(t -> t.id().equals("d4")).findFirst().orElseThrow();
         assertNull(bishop.defences());
         assertEquals(FIRST_GAINED, bishop.attacks().transition());

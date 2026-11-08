@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
+import dev.rightknight.analysis.DirectRelationEventCalculator;
+import dev.rightknight.analysis.DirectRelationEvents.Status;
 import dev.rightknight.model.attack.AttackDelta;
 import dev.rightknight.model.attack.AttackSnapshot;
 import dev.rightknight.model.attack.XrayControl;
@@ -103,6 +105,9 @@ class XrayControlTest {
         oldDelta.put("schemaVersion", 2).remove(List.of("addedXrayControls", "removedXrayControls"));
         var snapshot = mapper.treeToValue(oldSnapshot, AttackSnapshot.class);
         var delta = mapper.treeToValue(oldDelta, AttackDelta.class);
+        var report = new DirectRelationEventCalculator().calculate("d3e3", snapshot, delta);
+        assertEquals(Status.AVAILABLE, report.status());
+        assertEquals(Status.MISSING_DATA, report.batteries().status());
         assertNull(snapshot.xrayControl());
         assertNull(delta.addedXrayControls());
         assertNull(delta.removedXrayControls());

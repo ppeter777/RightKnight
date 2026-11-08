@@ -13,11 +13,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import static dev.rightknight.model.attack.AttackSnapshot.RelationKind.ATTACK;
 import static dev.rightknight.model.attack.AttackSnapshot.RelationKind.DEFENCE;
 
 public final class DirectRelationEventCalculator {
+    private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
+
     private record Incoming(String targetId, RelationKind kind) {}
 
     public DirectRelationEvents calculate(String moveUci, AttackSnapshot root, AttackDelta delta) {
@@ -25,7 +28,8 @@ public final class DirectRelationEventCalculator {
             return new DirectRelationEvents(moveUci, Status.MISSING_DATA, List.of(), List.of());
         }
         if (root.schemaVersion() < 1 || root.schemaVersion() > 3
-                || delta.schemaVersion() != root.schemaVersion() || moveUci == null || !moveUci.equals(delta.moveUci())) {
+                || delta.schemaVersion() != root.schemaVersion() || moveUci == null
+                || !moveUci.equals(delta.moveUci()) || !UCI.matcher(moveUci).matches()) {
             return new DirectRelationEvents(moveUci, Status.INCOMPATIBLE_DATA, List.of(), List.of());
         }
 
@@ -61,7 +65,8 @@ public final class DirectRelationEventCalculator {
             }
             changes.add(new TargetChange(id, root.pieces().get(id), after.get(id), byKind.get(ATTACK), byKind.get(DEFENCE)));
         }
-        return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes);
+        return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
+                BatteryEventCalculator.calculate(root, delta, after));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {
