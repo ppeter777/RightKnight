@@ -7,10 +7,17 @@ import java.util.List;
 
 /** Direct geometric relations for one move, relative to its own root snapshot. */
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
-                                   List<TargetChange> targets) {
+                                   List<TargetChange> targets, BatteryEvents batteries) {
     public DirectRelationEvents {
         calculatedKinds = List.copyOf(calculatedKinds);
         targets = List.copyOf(targets);
+    }
+
+    /** Direct-only reports created by earlier callers carry no battery data. */
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets) {
+        this(moveUci, status, calculatedKinds, targets, new BatteryEvents(
+                status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of()));
     }
 
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }

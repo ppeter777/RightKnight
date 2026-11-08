@@ -19,7 +19,7 @@ class DirectRelationEventServiceTest {
     @Test
     void readsPlayedAndRankedCandidateDeltasIndependentlyFromOneRoot() {
         var move = new GameMoveEntity();
-        move.setFenBefore("7k/4r3/8/8/R7/2N5/8/7K w - - 0 1");
+        move.setFenBefore("6qk/4rb2/8/8/R7/2N5/8/7K w - - 0 1");
         move.setUci("c3d5");
         var context = new MoveContextCalculator().calculate(move, null);
         var playedDelta = context.legalMoveFeatures().get("c3d5").attackDelta();
@@ -42,6 +42,8 @@ class DirectRelationEventServiceTest {
         assertEquals("c3b1", first.moveUci());
         assertTrue(first.targets().stream().noneMatch(t -> t.id().equals("e7")));
         assertTrue(report.played().targets().stream().anyMatch(t -> t.id().equals("e7")));
+        assertTrue(report.played().batteries().changes().stream().anyMatch(c -> c.square().equals("d5")));
+        assertTrue(first.batteries().changes().stream().noneMatch(c -> c.square().equals("d5")));
         assertEquals(report.played(), report.candidates().get(1).events());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().status());
     }
