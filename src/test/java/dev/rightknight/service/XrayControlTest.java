@@ -108,6 +108,10 @@ class XrayControlTest {
         var report = new DirectRelationEventCalculator().calculate("d3e3", snapshot, delta);
         assertEquals(Status.AVAILABLE, report.status());
         assertEquals(Status.MISSING_DATA, report.batteries().status());
+        assertEquals(Status.AVAILABLE, report.squareControl().status());
+        assertFalse(report.squareControl().changes().isEmpty());
+        assertEquals(new DirectRelationEventCalculator().calculate("d3e3", result.before, result.delta).squareControl(),
+                report.squareControl());
         assertNull(snapshot.xrayControl());
         assertNull(delta.addedXrayControls());
         assertNull(delta.removedXrayControls());

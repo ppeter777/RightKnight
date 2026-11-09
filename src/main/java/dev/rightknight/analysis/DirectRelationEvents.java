@@ -7,7 +7,7 @@ import java.util.List;
 
 /** Direct geometric relations for one move, relative to its own root snapshot. */
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
-                                   List<TargetChange> targets, BatteryEvents batteries) {
+                                   List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl) {
     public DirectRelationEvents {
         calculatedKinds = List.copyOf(calculatedKinds);
         targets = List.copyOf(targets);
@@ -17,6 +17,12 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
     public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
                                 List<TargetChange> targets) {
         this(moveUci, status, calculatedKinds, targets, new BatteryEvents(
+                status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of()));
+    }
+
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets, BatteryEvents batteries) {
+        this(moveUci, status, calculatedKinds, targets, batteries, new SquareControlEvents(
                 status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of()));
     }
 
@@ -35,6 +41,22 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         public SourcesChange {
             removed = List.copyOf(removed);
             added = List.copyOf(added);
+        }
+
+        static SourcesChange compare(int beforeCount, List<Participant> removed, List<Participant> added,
+                                     boolean capturedTarget) {
+            int afterCount = beforeCount - removed.size() + added.size();
+            Transition transition = transition(beforeCount, afterCount, !removed.isEmpty() || !added.isEmpty(), capturedTarget);
+            return new SourcesChange(beforeCount, afterCount, removed, added, transition);
+        }
+
+        private static Transition transition(int before, int after, boolean changed, boolean captured) {
+            if (!changed) return Transition.UNCHANGED;
+            if (captured) return Transition.TARGET_CAPTURED;
+            if (before == 0) return Transition.FIRST_GAINED;
+            if (after == 0) return Transition.LAST_LOST;
+            if (before == after) return Transition.REPLACED;
+            return Transition.CHANGED;
         }
     }
 }

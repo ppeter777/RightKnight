@@ -59,14 +59,12 @@ public final class DirectRelationEventCalculator {
                 int oldCount = before.getOrDefault(key, List.of()).size();
                 var lost = participants(removed.getOrDefault(key, List.of()), root.pieces());
                 var gained = participants(added.getOrDefault(key, List.of()), after);
-                int newCount = oldCount - lost.size() + gained.size();
-                Transition transition = transition(oldCount, newCount, !lost.isEmpty() || !gained.isEmpty(), captured);
-                byKind.put(kind, new SourcesChange(oldCount, newCount, lost, gained, transition));
+                byKind.put(kind, SourcesChange.compare(oldCount, lost, gained, captured));
             }
             changes.add(new TargetChange(id, root.pieces().get(id), after.get(id), byKind.get(ATTACK), byKind.get(DEFENCE)));
         }
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
-                BatteryEventCalculator.calculate(root, delta, after));
+                BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {
@@ -80,14 +78,5 @@ public final class DirectRelationEventCalculator {
 
     private static List<Participant> participants(List<String> ids, Map<String, PieceState> pieces) {
         return ids.stream().sorted().map(id -> new Participant(id, pieces.get(id))).toList();
-    }
-
-    private static Transition transition(int before, int after, boolean changed, boolean captured) {
-        if (!changed) return Transition.UNCHANGED;
-        if (captured) return Transition.TARGET_CAPTURED;
-        if (before == 0) return Transition.FIRST_GAINED;
-        if (after == 0) return Transition.LAST_LOST;
-        if (before == after) return Transition.REPLACED;
-        return Transition.CHANGED;
     }
 }
