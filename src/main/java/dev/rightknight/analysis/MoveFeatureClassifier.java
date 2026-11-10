@@ -3,6 +3,7 @@ package dev.rightknight.analysis;
 import dev.rightknight.model.GameMoveAnalysisCandidateEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
 import dev.rightknight.model.AttackTarget;
+import dev.rightknight.model.attack.AttackSnapshot;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
 import java.util.List;
@@ -24,21 +25,32 @@ public class MoveFeatureClassifier {
     /** movingPieceAfter is the piece on the destination AFTER the move (including promotion). */
     public CandidateMoveClassification classify(GameMoveAnalysisCandidateEntity candidate,
                                                 Boolean previousMoveCapture, Piece movingPieceAfter) {
+        return classify(candidate, previousMoveCapture, movingPieceAfter, null);
+    }
+
+    /** Supply the shared root explicitly to include attacks uncovered by other pieces. */
+    public CandidateMoveClassification classify(GameMoveAnalysisCandidateEntity candidate, Boolean previousMoveCapture,
+                                                Piece movingPieceAfter, AttackSnapshot root) {
         Objects.requireNonNull(candidate, "candidate");
         return classify(candidate.getCapture(), candidate.getRecapture(), candidate.getGivesCheck(),
-                candidate.getPromotion(), candidate.getNewAttackTargets(), previousMoveCapture, movingPieceAfter);
+                candidate.getPromotion(), candidate.getNewAttackTargets(), previousMoveCapture, movingPieceAfter,
+                root == null ? null : ValuableAttackEvents.calculate(candidate.getMoveUci(), root, candidate.getAttackDelta()));
     }
 
     public CandidateMoveClassification classifyPlayed(GameMoveAnalysisEntity analysis, Piece movingPieceAfter) {
         Objects.requireNonNull(analysis, "analysis");
+        var root = analysis.getAttackSnapshotBefore();
+        var delta = analysis.getPlayedAttackDelta();
+        var events = root == null ? null : ValuableAttackEvents.calculate(delta == null ? null : delta.moveUci(), root, delta);
         return classify(analysis.getPlayedCapture(), analysis.getPlayedRecapture(), analysis.getPlayedGivesCheck(),
                 analysis.getPlayedPromotion(), analysis.getPlayedNewAttackTargets(),
-                analysis.getPreviousMoveCapture(), movingPieceAfter);
+                analysis.getPreviousMoveCapture(), movingPieceAfter, events);
     }
 
     private CandidateMoveClassification classify(Boolean capture, Boolean recapture, Boolean givesCheck,
                                                  Boolean promotion, List<AttackTarget> targets,
-                                                 Boolean previousMoveCapture, Piece movingPieceAfter) {
+                                                 Boolean previousMoveCapture, Piece movingPieceAfter,
+                                                 ValuableAttackEvents graphAttacks) {
         if (Boolean.TRUE.equals(recapture)
                 && (Boolean.FALSE.equals(capture) || Boolean.FALSE.equals(previousMoveCapture))) {
             throw new IllegalArgumentException("Recapture contradicts capture or previous-move flags");
@@ -50,15 +62,13 @@ public class MoveFeatureClassifier {
         classify(OTHER_CAPTURE, otherCapture(previousMoveCapture, capture, recapture), categories, unknown);
         classify(GIVES_CHECK, givesCheck, categories, unknown);
         classify(PROMOTION, promotion, categories, unknown);
-        Boolean moreValuable = null;
+        Boolean moreValuable = graphAttacks == null
+                ? legacyValuableAttack(targets, movingPieceAfter) : graphAttacks.attackByMovingSide();
         Boolean pawnAttack = null;
         if (targets != null) {
             if (targets.isEmpty()) {
-                moreValuable = false;
                 pawnAttack = false;
             } else if (movingPieceAfter != null && movingPieceAfter != Piece.NONE) {
-                moreValuable = targets.stream().anyMatch(t ->
-                        value(t.piece().getPieceType()) > value(movingPieceAfter.getPieceType()));
                 pawnAttack = movingPieceAfter.getPieceType() == PieceType.PAWN
                         && targets.stream().anyMatch(t -> t.piece().getPieceType() != PieceType.PAWN);
             }
@@ -68,15 +78,12 @@ public class MoveFeatureClassifier {
         return new CandidateMoveClassification(categories, unknown);
     }
 
-    private static int value(PieceType piece) {
-        return switch (piece) {
-            case PAWN -> 1;
-            case KNIGHT, BISHOP -> 3;
-            case ROOK -> 5;
-            case QUEEN -> 9;
-            case KING -> Integer.MAX_VALUE;
-            default -> throw new IllegalArgumentException("Unexpected piece type: " + piece);
-        };
+    private static Boolean legacyValuableAttack(List<AttackTarget> targets, Piece movingPieceAfter) {
+        if (targets == null) return null;
+        if (targets.isEmpty()) return false;
+        if (movingPieceAfter == null || movingPieceAfter == Piece.NONE) return null;
+        return targets.stream().anyMatch(t ->
+                ValuableAttackEvents.isMoreValuable(movingPieceAfter.getPieceType(), t.piece().getPieceType()));
     }
 
     private static Boolean otherCapture(Boolean previousCapture, Boolean capture, Boolean recapture) {

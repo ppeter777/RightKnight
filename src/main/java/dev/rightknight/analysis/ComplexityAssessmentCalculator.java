@@ -14,7 +14,7 @@ import static dev.rightknight.analysis.ComplexityAssessment.UnknownReason.*;
 /** Reads only supplied data. No engine calls, DB access, played-move quality or solve-time input. */
 @Component
 public class ComplexityAssessmentCalculator {
-    public static final String MODEL_VERSION = "complexity-diagnostic-v4";
+    public static final String MODEL_VERSION = "complexity-diagnostic-v5";
     private final PositionComplexityCalculator positions;
     private final MoveFeatureClassifier moves;
 
@@ -102,7 +102,7 @@ public class ComplexityAssessmentCalculator {
             results.add(new CandidateAssessment(candidate.getPvRank(), candidate.getMoveUci(),
                     candidate.getEvalCp(), candidate.getMateIn(), candidate.getDepth(), candidate.getScoreBound(),
                     loss, policy.classify(loss), policy.acceptable(loss), reasons,
-                    moves.classify(candidate, analysis.getPreviousMoveCapture(), pieceAfter)));
+                    moves.classify(candidate, analysis.getPreviousMoveCapture(), pieceAfter, analysis.getAttackSnapshotBefore())));
             allReasons.addAll(reasons);
         }
         Integer acceptable = acceptableCount(results);
