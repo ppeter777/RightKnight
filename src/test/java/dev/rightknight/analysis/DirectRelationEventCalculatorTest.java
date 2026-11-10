@@ -110,6 +110,8 @@ class DirectRelationEventCalculatorTest {
         assertEquals(AVAILABLE, events.status());
         assertEquals(List.of(ATTACK), events.calculatedKinds());
         assertEquals(MISSING_DATA, events.batteries().status());
+        assertEquals(MISSING_DATA, events.squareControl().status());
+        assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).squareControl().status());
         assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).batteries().status());
         var bishop = events.targets().stream().filter(t -> t.id().equals("d4")).findFirst().orElseThrow();
         assertNull(bishop.defences());
