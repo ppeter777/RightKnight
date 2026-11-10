@@ -52,10 +52,13 @@ public final class DirectRelationEventCalculator {
         added.keySet().forEach(key -> directTargets.add(key.targetId()));
 
         var targets = new TreeSet<>(directTargets);
-        // Promotion can expose the new piece even when the same source attacks both squares.
-        if (moveUci.length() == 5) targets.add(moveUci.substring(0, 2));
+        // A piece can move and remain under attack with exactly the same incoming edges.
+        for (var piece : delta.pieceChanges()) {
+            if (piece.after() != null) targets.add(piece.pieceId());
+        }
         boolean threatsAvailable = root.calculatedKinds().containsAll(List.of(ATTACK, DEFENCE));
         List<UndefendedPieceEvents.Change> threats = new ArrayList<>();
+        List<MovedIntoAttackEvents.Change> landings = new ArrayList<>();
         List<TargetChange> changes = new ArrayList<>();
         for (String id : targets) {
             Map<RelationKind, SourcesChange> byKind = new EnumMap<>(RelationKind.class);
@@ -73,12 +76,15 @@ public final class DirectRelationEventCalculator {
                 var attackers = before.getOrDefault(new Incoming(id, ATTACK), List.of());
                 UndefendedPieceEvents.change(target, attackers, root.pieces(), after, moveUci)
                         .ifPresent(threats::add);
+                var defenders = before.getOrDefault(new Incoming(id, DEFENCE), List.of());
+                MovedIntoAttackEvents.change(target, attackers, defenders, after).ifPresent(landings::add);
             }
         }
+        var threatStatus = threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA;
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
                 BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after),
-                new UndefendedPieceEvents(threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA, threats),
-                ValuableAttackEvents.calculate(root, delta, after));
+                new UndefendedPieceEvents(threatStatus, threats),
+                ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {

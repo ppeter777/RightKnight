@@ -27,7 +27,7 @@ class ValuableAttackEventsTest {
         assertEquals("e5", threat.attacker().state().square());
         assertEquals("f6", threat.target().id());
         assertEquals(ATTACKER_MOVED, threat.reason());
-        assertTrue(advance.report.undefendedPieces().changes().isEmpty());
+        assertTrue(advance.report.undefendedPieces().changes().stream().noneMatch(c -> c.target().id().equals("f6")));
         var retreat = play(board, "f6d7").events();
         assertTrue(retreat.added().isEmpty());
         assertEquals(TARGET_MOVED, retreat.removed().getFirst().reason());
