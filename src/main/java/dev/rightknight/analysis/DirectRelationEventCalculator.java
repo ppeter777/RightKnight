@@ -23,25 +23,26 @@ public final class DirectRelationEventCalculator {
 
     private record Incoming(String targetId, RelationKind kind) {}
 
-    public DirectRelationEvents calculate(String moveUci, AttackSnapshot root, AttackDelta delta) {
-        if (root == null || delta == null) {
-            return new DirectRelationEvents(moveUci, Status.MISSING_DATA, List.of(), List.of());
-        }
+    static Status inputStatus(String moveUci, AttackSnapshot root, AttackDelta delta) {
+        if (root == null || delta == null) return Status.MISSING_DATA;
         if (root.schemaVersion() < 1 || root.schemaVersion() > 3
                 || delta.schemaVersion() != root.schemaVersion() || moveUci == null
                 || !moveUci.equals(delta.moveUci()) || !UCI.matcher(moveUci).matches()) {
-            return new DirectRelationEvents(moveUci, Status.INCOMPATIBLE_DATA, List.of(), List.of());
+            return Status.INCOMPATIBLE_DATA;
+        }
+        return Status.AVAILABLE;
+    }
+
+    public DirectRelationEvents calculate(String moveUci, AttackSnapshot root, AttackDelta delta) {
+        var status = inputStatus(moveUci, root, delta);
+        if (status != Status.AVAILABLE) {
+            return new DirectRelationEvents(moveUci, status, List.of(), List.of());
         }
 
-        Map<String, PieceState> after = new HashMap<>(root.pieces());
+        var after = delta.piecesAfter(root);
         var directTargets = new TreeSet<String>();
         for (var piece : delta.pieceChanges()) {
-            if (piece.after() == null) {
-                after.remove(piece.pieceId());
-                directTargets.add(piece.pieceId());
-            } else {
-                after.put(piece.pieceId(), piece.after());
-            }
+            if (piece.after() == null) directTargets.add(piece.pieceId());
         }
 
         var before = incoming(root.relations());
@@ -76,7 +77,8 @@ public final class DirectRelationEventCalculator {
         }
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
                 BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after),
-                new UndefendedPieceEvents(threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA, threats));
+                new UndefendedPieceEvents(threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA, threats),
+                ValuableAttackEvents.calculate(root, delta, after));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {

@@ -133,12 +133,15 @@ same rules. Supply the piece on the destination after making the move, including
 promotion, rather than the pawn before promotion:
 
 ```java
-var candidateCategories = classifier.classify(candidate, previousMoveCapture, Piece.WHITE_BISHOP);
+var candidateCategories = classifier.classify(candidate, previousMoveCapture, Piece.WHITE_BISHOP,
+        analysis.getAttackSnapshotBefore());
 var playedCategories = classifier.classifyPlayed(analysis, Piece.WHITE_PAWN);
 ```
 
-- `NEW_ATTACK_ON_MORE_VALUABLE_PIECE`: at least one new target has greater
-  nominal value (pawn 1, knight/bishop 3, rook 5, queen 9; king is excluded).
+- `NEW_ATTACK_ON_MORE_VALUABLE_PIECE` uses new direct attack edges by the moving
+  side, including discovered attacks by stationary pieces. Values are pawn 1,
+  knight/bishop 3, rook 5 and queen 9. Kings are excluded. The classifier uses
+  the V16 moving-piece targets when called without a root snapshot.
 - `NEW_PAWN_ATTACK_ON_PIECE`: a pawn newly attacks an enemy non-pawn, non-king.
 - `OTHER_CAPTURE`: previous move was a capture, this move is a capture, and
   it is not a recapture. This remains derived from raw flags for both played

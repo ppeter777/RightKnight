@@ -3,7 +3,9 @@ package dev.rightknight.model.attack;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import dev.rightknight.model.attack.AttackSnapshot.PieceState;
 import dev.rightknight.model.attack.AttackSnapshot.Relation;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Relative to the parent analysis's snapshot; never compare deltas from different roots/versions. */
@@ -27,6 +29,15 @@ public record AttackDelta(int schemaVersion, String moveUci, List<PieceChange> p
         }
         addedXrayControls = addedXrayControls == null ? null : List.copyOf(addedXrayControls);
         removedXrayControls = removedXrayControls == null ? null : List.copyOf(removedXrayControls);
+    }
+
+    public Map<String, PieceState> piecesAfter(AttackSnapshot root) {
+        var after = new HashMap<>(root.pieces());
+        for (var change : pieceChanges) {
+            if (change.after() == null) after.remove(change.pieceId());
+            else after.put(change.pieceId(), change.after());
+        }
+        return after;
     }
 
     /** A stable source ID controlling a board square (not a target piece ID). */
