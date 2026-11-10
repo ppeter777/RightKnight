@@ -55,6 +55,9 @@ class DirectRelationEventServiceTest {
         assertEquals(List.of(Reason.OCCUPANCY_CHANGED, Reason.CENTER), playedCenter.reasons());
         assertEquals("c3", playedCenter.after().id());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().squareControl().status());
+        assertTrue(report.played().undefendedPieces().changes().stream().anyMatch(c -> c.target().id().equals("e7")));
+        assertTrue(first.undefendedPieces().changes().stream().noneMatch(c -> c.target().id().equals("e7")));
+        assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().undefendedPieces().status());
         assertEquals(report.played(), report.candidates().get(1).events());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().status());
     }
