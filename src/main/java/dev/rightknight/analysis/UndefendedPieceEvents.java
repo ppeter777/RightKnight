@@ -10,9 +10,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeSet;
 
-/** Direct geometric threats against surviving minor and major pieces. */
+/** Direct geometric threats against surviving non-king pieces, including pawns. */
 public record UndefendedPieceEvents(Status status, List<Change> changes) {
     public UndefendedPieceEvents {
         changes = List.copyOf(changes);
@@ -37,19 +36,21 @@ public record UndefendedPieceEvents(Status status, List<Change> changes) {
         var defences = target.defences();
         boolean wasExposed = exposed(target.before(), attacks.beforeCount(), defences.beforeCount());
         boolean nowExposed = exposed(target.after(), attacks.afterCount(), defences.afterCount());
-        if (wasExposed == nowExposed) return Optional.empty();
+        boolean promoted = target.before().type() != target.after().type();
+        // Keep the existing exposure event for the newly promoted piece.
+        if (wasExposed == nowExposed && !(promoted && nowExposed)) return Optional.empty();
 
         var reasons = EnumSet.noneOf(Reason.class);
-        var attackerIds = new TreeSet<>(beforeAttackers);
+        List<Participant> attackers;
         Transition transition;
         if (nowExposed) {
             transition = Transition.EXPOSED;
             if (attacks.beforeCount() == 0) reasons.add(Reason.FIRST_ATTACK);
             if (defences.beforeCount() > 0) reasons.add(Reason.LAST_DEFENDER_LOST);
-            if (target.before().type() == PieceType.PAWN) reasons.add(Reason.PROMOTION);
-            attacks.removed().forEach(p -> attackerIds.remove(p.id()));
-            attacks.added().forEach(p -> attackerIds.add(p.id()));
+            if (promoted) reasons.add(Reason.PROMOTION);
+            attackers = attacks.participantsAfter(beforeAttackers, after);
         } else {
+            attackers = beforeAttackers.stream().sorted().map(id -> new Participant(id, before.get(id))).toList();
             var mover = before.get(uci.substring(0, 2));
             transition = mover.color() == target.before().color() ? Transition.ANSWERED : Transition.WITHDRAWN;
             if (defences.afterCount() > 0) reasons.add(Reason.DEFENDER_GAINED);
@@ -62,12 +63,10 @@ public record UndefendedPieceEvents(Status status, List<Change> changes) {
                 else if (!moved) reasons.add(Reason.LINE_BLOCKED);
             }
         }
-        var pieces = nowExposed ? after : before;
-        var attackers = attackerIds.stream().map(id -> new Participant(id, pieces.get(id))).toList();
         return Optional.of(new Change(target, transition, attackers, List.copyOf(reasons)));
     }
 
     private static boolean exposed(PieceState target, int attackers, int defenders) {
-        return target.type() != PieceType.KING && target.type() != PieceType.PAWN && attackers > 0 && defenders == 0;
+        return target.type() != PieceType.KING && attackers > 0 && defenders == 0;
     }
 }

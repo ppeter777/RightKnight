@@ -6,11 +6,13 @@ import dev.rightknight.model.attack.AttackSnapshot.RelationKind;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /** Direct geometric relations for one move, relative to its own root snapshot. */
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
                                    List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
-                                   UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks) {
+                                   UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks,
+                                   MovedIntoAttackEvents movedIntoAttack) {
     public DirectRelationEvents {
         if (undefendedPieces == null) {
             undefendedPieces = new UndefendedPieceEvents(
@@ -19,6 +21,10 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         if (valuableAttacks == null) {
             valuableAttacks = ValuableAttackEvents.unavailable(
                     status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA);
+        }
+        if (movedIntoAttack == null) {
+            movedIntoAttack = new MovedIntoAttackEvents(
+                    status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
         }
         calculatedKinds = List.copyOf(calculatedKinds);
         targets = List.copyOf(targets);
@@ -48,6 +54,12 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, null);
     }
 
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
+                                UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks) {
+        this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, valuableAttacks, null);
+    }
+
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }
     public enum Transition { UNCHANGED, FIRST_GAINED, LAST_LOST, REPLACED, CHANGED, TARGET_CAPTURED }
 
@@ -69,6 +81,13 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         public SourcesChange {
             removed = List.copyOf(removed);
             added = List.copyOf(added);
+        }
+
+        List<Participant> participantsAfter(List<String> beforeIds, Map<String, PieceState> piecesAfter) {
+            var ids = new TreeSet<>(beforeIds);
+            removed.forEach(p -> ids.remove(p.id()));
+            added.forEach(p -> ids.add(p.id()));
+            return ids.stream().map(id -> new Participant(id, piecesAfter.get(id))).toList();
         }
 
         static SourcesChange compare(int beforeCount, List<Participant> removed, List<Participant> added,

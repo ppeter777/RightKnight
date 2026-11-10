@@ -60,12 +60,30 @@ class UndefendedPieceEventsTest {
     }
 
     @Test
-    void filtersCapturedTargetsPawnsKingsAndPersistentThreats() {
+    void filtersCapturedTargetsKingsAndPersistentThreats() {
         assertTrue(play(board("r6k/8/8/8/N7/8/8/7K b - - 0 1"), "a8a4").changes().isEmpty());
-        assertTrue(play(board("1r5k/8/8/8/P7/8/8/7K b - - 0 1"), "b8a8").changes().isEmpty());
         assertTrue(play(board("1r5k/8/8/8/K7/8/8/8 b - - 0 1"), "b8a8").changes().isEmpty());
         var ongoing = play(board("rr5k/8/8/8/N7/8/8/7K b - - 0 1"), "b8b4");
         assertTrue(ongoing.changes().stream().noneMatch(c -> c.target().id().equals("a4")));
+    }
+
+    @Test
+    void anUndefendedPawnCanBeAttackedAndThenDefended() {
+        var board = board("1r5k/8/8/8/P7/8/8/1B5K b - - 0 1");
+        var pawn = target(play(board, "b8a8"), "a4");
+        assertEquals(EXPOSED, pawn.transition());
+        assertEquals(List.of(FIRST_ATTACK), pawn.reasons());
+        assertEquals(PieceType.PAWN, pawn.target().after().type());
+        var reply = target(play(board, "b1c2"), "a4");
+        assertEquals(ANSWERED, reply.transition());
+        assertEquals(List.of(DEFENDER_GAINED), reply.reasons());
+    }
+
+    @Test
+    void aPawnCanLoseItsOnlyDefender() {
+        var pawn = target(play(board("r6k/8/8/8/P7/2N5/8/7K w - - 0 1"), "c3d5"), "a4");
+        assertEquals(EXPOSED, pawn.transition());
+        assertEquals(List.of(LAST_DEFENDER_LOST), pawn.reasons());
     }
 
     @Test

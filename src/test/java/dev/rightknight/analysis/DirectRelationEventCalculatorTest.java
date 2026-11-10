@@ -90,12 +90,52 @@ class DirectRelationEventCalculatorTest {
     }
 
     @Test
-    void retainedRelationAndControlOnlyChangesDoNotEmitEvents() {
+    void aRookCanMoveUnderTheSameAttackWithoutChangingAnyDirectEdges() {
         var events = line("r6k/8/8/8/8/8/8/R6K w - - 0 1", "a1a2").events();
         assertEquals(AVAILABLE, events.status());
         assertTrue(events.targets().isEmpty());
+        assertEquals(MovedIntoAttackEvents.Kind.UNDEFENDED, events.movedIntoAttack().changes().getFirst().kind());
+        assertEquals("a8", events.movedIntoAttack().changes().getFirst().attackers().getFirst().id());
+        assertTrue(events.undefendedPieces().changes().isEmpty());
         assertEquals(AVAILABLE, events.batteries().status());
         assertTrue(events.batteries().changes().isEmpty());
+    }
+
+    @Test
+    void knightCapturesOnASquareAttackedByABishopWithNoDefenders() {
+        var events = line("7k/6b1/8/8/3p4/5N2/8/7K w - - 0 1", "f3d4").events();
+        assertEquals(1, events.movedIntoAttack().changes().size());
+        var landing = events.movedIntoAttack().changes().getFirst();
+        assertEquals(MovedIntoAttackEvents.Kind.UNDEFENDED, landing.kind());
+        assertEquals("f3", landing.target().before().square());
+        assertEquals("d4", landing.target().after().square());
+        assertEquals("g7", landing.attackers().getFirst().id());
+        assertTrue(landing.defenders().isEmpty());
+    }
+
+    @Test
+    void knightMovesUnderTwoHeavyPieceAttacksWithOneQueenDefender() {
+        var report = line("3r2k1/8/8/8/q7/5N2/8/3Q2K1 w - - 0 1", "f3d4").events();
+        assertEquals(AVAILABLE, report.movedIntoAttack().status());
+        assertEquals(1, report.movedIntoAttack().changes().size());
+        var landing = report.movedIntoAttack().changes().getFirst();
+        assertEquals(MovedIntoAttackEvents.Kind.OUTNUMBERED, landing.kind());
+        assertEquals(List.of("a4", "d8"), landing.attackers().stream().map(p -> p.id()).toList());
+        assertEquals(List.of("d1"), landing.defenders().stream().map(p -> p.id()).toList());
+        assertTrue(report.undefendedPieces().changes().stream().noneMatch(c -> c.target().id().equals("f3")));
+        assertTrue(line("6k1/8/8/8/q7/5N2/8/3Q2K1 w - - 0 1", "f3d4")
+                .events().movedIntoAttack().changes().isEmpty());
+    }
+
+    @Test
+    void movedPawnCanLandUnderAttackAndAStationaryTargetIsExcluded() {
+        var line = line("7k/6b1/8/8/8/3P4/8/7K w - - 0 1", "d3d4");
+        var pawn = line.events().movedIntoAttack().changes().getFirst();
+        assertEquals(PieceType.PAWN, pawn.target().after().type());
+        assertEquals(List.of(UndefendedPieceEvents.Reason.FIRST_ATTACK),
+                line.events().undefendedPieces().changes().getFirst().reasons());
+        var openedLine = line("r6k/8/8/8/P7/2N5/8/7K w - - 0 1", "c3d5");
+        assertTrue(openedLine.events().movedIntoAttack().changes().isEmpty());
     }
 
     @Test
@@ -109,6 +149,8 @@ class DirectRelationEventCalculatorTest {
         var events = calculator.calculate("e5e6", root, delta);
         assertEquals(AVAILABLE, events.status());
         assertEquals(List.of(ATTACK), events.calculatedKinds());
+        assertEquals(MISSING_DATA, events.movedIntoAttack().status());
+        assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).movedIntoAttack().status());
         assertEquals(MISSING_DATA, events.undefendedPieces().status());
         assertEquals(MISSING_DATA, calculator.calculate("e5e6", root, null).undefendedPieces().status());
         assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).undefendedPieces().status());

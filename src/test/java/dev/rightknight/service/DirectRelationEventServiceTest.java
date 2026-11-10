@@ -61,6 +61,10 @@ class DirectRelationEventServiceTest {
         assertTrue(report.played().valuableAttacks().added().stream().anyMatch(a -> a.target().id().equals("e7")));
         assertTrue(first.valuableAttacks().added().isEmpty());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().valuableAttacks().status());
+        var movedKnight = report.played().movedIntoAttack().changes().getFirst();
+        assertEquals("d5", movedKnight.target().after().square());
+        assertTrue(first.movedIntoAttack().changes().isEmpty());
+        assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().movedIntoAttack().status());
         assertEquals(report.played(), report.candidates().get(1).events());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().status());
     }
