@@ -109,6 +109,9 @@ class DirectRelationEventCalculatorTest {
         var events = calculator.calculate("e5e6", root, delta);
         assertEquals(AVAILABLE, events.status());
         assertEquals(List.of(ATTACK), events.calculatedKinds());
+        assertEquals(MISSING_DATA, events.undefendedPieces().status());
+        assertEquals(MISSING_DATA, calculator.calculate("e5e6", root, null).undefendedPieces().status());
+        assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).undefendedPieces().status());
         assertEquals(MISSING_DATA, events.batteries().status());
         assertEquals(MISSING_DATA, events.squareControl().status());
         assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", root, delta).squareControl().status());

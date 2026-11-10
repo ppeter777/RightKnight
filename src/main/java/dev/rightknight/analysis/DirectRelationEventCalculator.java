@@ -34,11 +34,11 @@ public final class DirectRelationEventCalculator {
         }
 
         Map<String, PieceState> after = new HashMap<>(root.pieces());
-        var targets = new TreeSet<String>();
+        var directTargets = new TreeSet<String>();
         for (var piece : delta.pieceChanges()) {
             if (piece.after() == null) {
                 after.remove(piece.pieceId());
-                targets.add(piece.pieceId());
+                directTargets.add(piece.pieceId());
             } else {
                 after.put(piece.pieceId(), piece.after());
             }
@@ -47,9 +47,14 @@ public final class DirectRelationEventCalculator {
         var before = incoming(root.relations());
         var removed = incoming(delta.removedRelations());
         var added = incoming(delta.addedRelations());
-        removed.keySet().forEach(key -> targets.add(key.targetId()));
-        added.keySet().forEach(key -> targets.add(key.targetId()));
+        removed.keySet().forEach(key -> directTargets.add(key.targetId()));
+        added.keySet().forEach(key -> directTargets.add(key.targetId()));
 
+        var targets = new TreeSet<>(directTargets);
+        // Promotion can expose the new piece even when the same source attacks both squares.
+        if (moveUci.length() == 5) targets.add(moveUci.substring(0, 2));
+        boolean threatsAvailable = root.calculatedKinds().containsAll(List.of(ATTACK, DEFENCE));
+        List<UndefendedPieceEvents.Change> threats = new ArrayList<>();
         List<TargetChange> changes = new ArrayList<>();
         for (String id : targets) {
             Map<RelationKind, SourcesChange> byKind = new EnumMap<>(RelationKind.class);
@@ -61,10 +66,17 @@ public final class DirectRelationEventCalculator {
                 var gained = participants(added.getOrDefault(key, List.of()), after);
                 byKind.put(kind, SourcesChange.compare(oldCount, lost, gained, captured));
             }
-            changes.add(new TargetChange(id, root.pieces().get(id), after.get(id), byKind.get(ATTACK), byKind.get(DEFENCE)));
+            var target = new TargetChange(id, root.pieces().get(id), after.get(id), byKind.get(ATTACK), byKind.get(DEFENCE));
+            if (directTargets.contains(id)) changes.add(target);
+            if (threatsAvailable) {
+                var attackers = before.getOrDefault(new Incoming(id, ATTACK), List.of());
+                UndefendedPieceEvents.change(target, attackers, root.pieces(), after, moveUci)
+                        .ifPresent(threats::add);
+            }
         }
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
-                BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after));
+                BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after),
+                new UndefendedPieceEvents(threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA, threats));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {

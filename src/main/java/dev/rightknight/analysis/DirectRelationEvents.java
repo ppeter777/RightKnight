@@ -9,8 +9,13 @@ import java.util.Map;
 
 /** Direct geometric relations for one move, relative to its own root snapshot. */
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
-                                   List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl) {
+                                   List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
+                                   UndefendedPieceEvents undefendedPieces) {
     public DirectRelationEvents {
+        if (undefendedPieces == null) {
+            undefendedPieces = new UndefendedPieceEvents(
+                    status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
+        }
         calculatedKinds = List.copyOf(calculatedKinds);
         targets = List.copyOf(targets);
     }
@@ -26,6 +31,11 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
                                 List<TargetChange> targets, BatteryEvents batteries) {
         this(moveUci, status, calculatedKinds, targets, batteries, new SquareControlEvents(
                 status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of()));
+    }
+
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl) {
+        this(moveUci, status, calculatedKinds, targets, batteries, squareControl, null);
     }
 
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }
