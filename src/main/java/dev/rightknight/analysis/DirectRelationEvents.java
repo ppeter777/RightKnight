@@ -3,7 +3,9 @@ package dev.rightknight.analysis;
 import dev.rightknight.model.attack.AttackSnapshot.PieceState;
 import dev.rightknight.model.attack.AttackSnapshot.RelationKind;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Direct geometric relations for one move, relative to its own root snapshot. */
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
@@ -29,7 +31,13 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }
     public enum Transition { UNCHANGED, FIRST_GAINED, LAST_LOST, REPLACED, CHANGED, TARGET_CAPTURED }
 
-    public record Participant(String id, PieceState state) {}
+    public record Participant(String id, PieceState state) {
+        static Map<String, Participant> bySquare(Map<String, PieceState> pieces) {
+            Map<String, Participant> result = new HashMap<>();
+            pieces.forEach((id, state) -> result.put(state.square(), new Participant(id, state)));
+            return result;
+        }
+    }
 
     /** after is null for a capture. A null attacks/defences field means that kind was not calculated. */
     public record TargetChange(String id, PieceState before, PieceState after,

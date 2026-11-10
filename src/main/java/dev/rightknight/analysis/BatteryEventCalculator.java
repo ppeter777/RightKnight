@@ -24,8 +24,8 @@ final class BatteryEventCalculator {
         afterControls.removeAll(delta.removedXrayControls());
         afterControls.addAll(delta.addedXrayControls());
 
-        var beforeTargets = occupants(root.pieces());
-        var afterTargets = occupants(afterPieces);
+        var beforeTargets = Participant.bySquare(root.pieces());
+        var afterTargets = Participant.bySquare(afterPieces);
         String destination = delta.moveUci().substring(2, 4);
         var squares = new HashSet<>(beforeTargets.keySet());
         squares.addAll(afterTargets.keySet());
@@ -63,12 +63,6 @@ final class BatteryEventCalculator {
                     state(newTarget, ray.side(), newDirect, newIds, afterPieces)));
         }
         return new BatteryEvents(Status.AVAILABLE, changes);
-    }
-
-    private static Map<String, Participant> occupants(Map<String, PieceState> pieces) {
-        Map<String, Participant> result = new HashMap<>();
-        pieces.forEach((id, state) -> result.put(state.square(), new Participant(id, state)));
-        return result;
     }
 
     private static Map<Ray, List<String>> batteries(Collection<XrayControl> controls,
