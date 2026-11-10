@@ -1,6 +1,7 @@
 package dev.rightknight.service;
 
 import dev.rightknight.analysis.DirectRelationEvents.Status;
+import dev.rightknight.analysis.SquareControlEvents.Reason;
 import dev.rightknight.model.GameMoveAnalysisCandidateEntity;
 import dev.rightknight.model.GameMoveAnalysisEntity;
 import dev.rightknight.model.GameMoveEntity;
@@ -44,9 +45,15 @@ class DirectRelationEventServiceTest {
         assertTrue(report.played().targets().stream().anyMatch(t -> t.id().equals("e7")));
         assertTrue(report.played().batteries().changes().stream().anyMatch(c -> c.square().equals("d5")));
         assertTrue(first.batteries().changes().stream().noneMatch(c -> c.square().equals("d5")));
-        assertTrue(report.played().squareControl().changes().stream().anyMatch(c -> c.square().equals("d5")));
         assertTrue(first.squareControl().changes().stream().anyMatch(c -> c.square().equals("b1")));
-        assertTrue(first.squareControl().changes().stream().noneMatch(c -> c.square().equals("d5")));
+        var candidateCenter = first.squareControl().changes().stream()
+                .filter(c -> c.square().equals("d5")).findFirst().orElseThrow();
+        assertEquals(List.of(Reason.CENTER), candidateCenter.reasons());
+        assertNull(candidateCenter.after());
+        var playedCenter = report.played().squareControl().changes().stream()
+                .filter(c -> c.square().equals("d5")).findFirst().orElseThrow();
+        assertEquals(List.of(Reason.OCCUPANCY_CHANGED, Reason.CENTER), playedCenter.reasons());
+        assertEquals("c3", playedCenter.after().id());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().squareControl().status());
         assertEquals(report.played(), report.candidates().get(1).events());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().status());
