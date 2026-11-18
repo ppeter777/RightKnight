@@ -59,6 +59,9 @@ public final class DirectRelationEventCalculator {
         boolean threatsAvailable = root.calculatedKinds().containsAll(List.of(ATTACK, DEFENCE));
         List<UndefendedPieceEvents.Change> threats = new ArrayList<>();
         List<MovedIntoAttackEvents.Change> landings = new ArrayList<>();
+        List<DiscoveredAttackEvents.Attack> discoveries = new ArrayList<>();
+        String from = moveUci.substring(0, 2);
+        var mover = new Participant(from, root.pieces().get(from));
         List<TargetChange> changes = new ArrayList<>();
         for (String id : targets) {
             Map<RelationKind, SourcesChange> byKind = new EnumMap<>(RelationKind.class);
@@ -72,19 +75,22 @@ public final class DirectRelationEventCalculator {
             }
             var target = new TargetChange(id, root.pieces().get(id), after.get(id), byKind.get(ATTACK), byKind.get(DEFENCE));
             if (directTargets.contains(id)) changes.add(target);
+            var attackers = before.getOrDefault(new Incoming(id, ATTACK), List.of());
+            var defenders = before.getOrDefault(new Incoming(id, DEFENCE), List.of());
+            discoveries.addAll(DiscoveredAttackEvents.opened(target, mover, attackers, defenders, root.pieces(), after));
             if (threatsAvailable) {
-                var attackers = before.getOrDefault(new Incoming(id, ATTACK), List.of());
                 UndefendedPieceEvents.change(target, attackers, root.pieces(), after, moveUci)
                         .ifPresent(threats::add);
-                var defenders = before.getOrDefault(new Incoming(id, DEFENCE), List.of());
                 MovedIntoAttackEvents.change(target, attackers, defenders, after).ifPresent(landings::add);
             }
         }
+        var discoveryStatus = root.calculatedKinds().contains(ATTACK) ? Status.AVAILABLE : Status.MISSING_DATA;
         var threatStatus = threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA;
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
                 BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after),
                 new UndefendedPieceEvents(threatStatus, threats),
-                ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings));
+                ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings),
+                new DiscoveredAttackEvents(discoveryStatus, discoveries));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {
@@ -96,7 +102,7 @@ public final class DirectRelationEventCalculator {
         return result;
     }
 
-    private static List<Participant> participants(List<String> ids, Map<String, PieceState> pieces) {
+    static List<Participant> participants(List<String> ids, Map<String, PieceState> pieces) {
         return ids.stream().sorted().map(id -> new Participant(id, pieces.get(id))).toList();
     }
 }

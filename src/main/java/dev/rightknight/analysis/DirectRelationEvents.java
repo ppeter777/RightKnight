@@ -12,7 +12,7 @@ import java.util.TreeSet;
 public record DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
                                    List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
                                    UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks,
-                                   MovedIntoAttackEvents movedIntoAttack) {
+                                   MovedIntoAttackEvents movedIntoAttack, DiscoveredAttackEvents discoveredAttacks) {
     public DirectRelationEvents {
         if (undefendedPieces == null) {
             undefendedPieces = new UndefendedPieceEvents(
@@ -24,6 +24,10 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         }
         if (movedIntoAttack == null) {
             movedIntoAttack = new MovedIntoAttackEvents(
+                    status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
+        }
+        if (discoveredAttacks == null) {
+            discoveredAttacks = new DiscoveredAttackEvents(
                     status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
         }
         calculatedKinds = List.copyOf(calculatedKinds);
@@ -58,6 +62,14 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
                                 List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
                                 UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks) {
         this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, valuableAttacks, null);
+    }
+
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
+                                UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks,
+                                MovedIntoAttackEvents movedIntoAttack) {
+        this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, valuableAttacks,
+                movedIntoAttack, null);
     }
 
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }
