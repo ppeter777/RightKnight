@@ -76,6 +76,9 @@ class DirectRelationEventServiceTest {
         assertEquals(List.of("c7", "e7"), knightFork.targets().stream().map(t -> t.piece().id()).toList());
         assertTrue(first.forks().added().stream().noneMatch(f -> f.attacker().id().equals("c3")));
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().forks().status());
+        assertEquals(2, report.played().combinedAttacks().added().getFirst().distinctTargetCount());
+        assertTrue(first.combinedAttacks().added().isEmpty());
+        assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().combinedAttacks().status());
         assertEquals(report.played(), report.candidates().get(1).events());
         assertEquals(Status.MISSING_DATA, report.candidates().get(2).events().status());
     }

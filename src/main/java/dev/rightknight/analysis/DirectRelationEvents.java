@@ -13,7 +13,7 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
                                    List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
                                    UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks,
                                    MovedIntoAttackEvents movedIntoAttack, DiscoveredAttackEvents discoveredAttacks,
-                                   ForkEvents forks) {
+                                   ForkEvents forks, CombinedAttackEvents combinedAttacks) {
     public DirectRelationEvents {
         if (undefendedPieces == null) {
             undefendedPieces = new UndefendedPieceEvents(
@@ -33,6 +33,9 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
         }
         if (forks == null) {
             forks = new ForkEvents(status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
+        }
+        if (combinedAttacks == null) {
+            combinedAttacks = new CombinedAttackEvents(status == Status.INCOMPATIBLE_DATA ? status : Status.MISSING_DATA, List.of());
         }
         calculatedKinds = List.copyOf(calculatedKinds);
         targets = List.copyOf(targets);
@@ -82,6 +85,14 @@ public record DirectRelationEvents(String moveUci, Status status, List<RelationK
                                 MovedIntoAttackEvents movedIntoAttack, DiscoveredAttackEvents discoveredAttacks) {
         this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, valuableAttacks,
                 movedIntoAttack, discoveredAttacks, null);
+    }
+
+    public DirectRelationEvents(String moveUci, Status status, List<RelationKind> calculatedKinds,
+                                List<TargetChange> targets, BatteryEvents batteries, SquareControlEvents squareControl,
+                                UndefendedPieceEvents undefendedPieces, ValuableAttackEvents valuableAttacks,
+                                MovedIntoAttackEvents movedIntoAttack, DiscoveredAttackEvents discoveredAttacks, ForkEvents forks) {
+        this(moveUci, status, calculatedKinds, targets, batteries, squareControl, undefendedPieces, valuableAttacks,
+                movedIntoAttack, discoveredAttacks, forks, null);
     }
 
     public enum Status { AVAILABLE, MISSING_DATA, INCOMPATIBLE_DATA }
