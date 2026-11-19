@@ -87,11 +87,14 @@ public final class DirectRelationEventCalculator {
         }
         var discoveryStatus = root.calculatedKinds().contains(ATTACK) ? Status.AVAILABLE : Status.MISSING_DATA;
         var threatStatus = threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA;
+        var direct = DirectAttackIndex.from(root, delta);
+        var discovered = new DiscoveredAttackEvents(discoveryStatus, discoveries);
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
                 BatteryEventCalculator.calculate(root, delta, after, batteries), SquareControlEventCalculator.calculate(root, delta, after),
                 new UndefendedPieceEvents(threatStatus, threats),
                 ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings),
-                new DiscoveredAttackEvents(discoveryStatus, discoveries), ForkEvents.calculate(root, delta, after, batteries));
+                discovered, ForkEvents.calculate(root, direct, after, batteries),
+                CombinedAttackEvents.calculate(from, after, direct, discovered));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {
