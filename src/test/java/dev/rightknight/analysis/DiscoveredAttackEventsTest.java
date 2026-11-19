@@ -33,12 +33,43 @@ class DiscoveredAttackEventsTest {
         assertEquals(List.of("a1", "c4"), ids(attack.attacks().after()));
         assertEquals(List.of("b7"), ids(attack.defences().before()));
         assertEquals(List.of("b7"), ids(attack.defences().after()));
+        assertEquals(List.of(), attack.defensiveBatteries().after());
+        assertEquals(0, attack.defensiveBatteries().afterSupportCount());
         assertTrue(line.report().valuableAttacks().added().isEmpty());
         var mapper = new ObjectMapper();
         var json = mapper.valueToTree(attacks.getFirst());
         assertEquals(2, json.at("/attacks/afterCount").intValue());
         assertEquals(1, json.at("/defences/beforeCount").intValue());
         assertEquals(attack, mapper.treeToValue(json, DiscoveredAttackEvents.Attack.class));
+    }
+
+    @Test
+    void countsRearDefendersOnEveryRayIncludingUnchangedBatteries() throws Exception {
+        // Nc4 uncovers Ra4 against d4. Two black batteries defend d4 from the north and northeast.
+        String fen = "7k/3q2q1/3r1b2/3r4/R1Np4/8/8/7K w - - 0 1";
+        var report = play(fen, "c4e3").report();
+        var attack = report.discoveredAttacks().added().stream().filter(a -> a.target().id().equals("d4"))
+                .findFirst().orElseThrow();
+        assertFalse(report.batteries().changes().stream().anyMatch(c -> c.square().equals("d4")));
+        assertEquals(List.of("d5", "f6"), ids(attack.defences().after()));
+        var support = attack.defensiveBatteries();
+        assertEquals(support.before(), support.after());
+        assertEquals(List.of("N", "NE"), support.after().stream().map(DiscoveredAttackEvents.BatteryRay::direction).toList());
+        assertEquals(List.of("d5", "d6", "d7"), ids(support.after().getFirst().pieces()));
+        assertEquals(List.of("f6", "g7"), ids(support.after().getLast().pieces()));
+        assertEquals(3, support.afterSupportCount());
+        var mapper = new ObjectMapper();
+        var json = mapper.valueToTree(attack);
+        assertEquals(3, json.at("/defensiveBatteries/afterSupportCount").intValue());
+        assertEquals(attack, mapper.treeToValue(json, DiscoveredAttackEvents.Attack.class));
+
+        // Nxd6 opens the same attack while breaking the northern battery.
+        var capture = play(fen, "c4d6").report().discoveredAttacks().added().stream()
+                .filter(a -> a.target().id().equals("d4")).findFirst().orElseThrow();
+        assertEquals(3, capture.defensiveBatteries().beforeSupportCount());
+        assertEquals(1, capture.defensiveBatteries().afterSupportCount());
+        assertEquals(support.before().getLast(), capture.defensiveBatteries().after().getFirst());
+        assertEquals(2, capture.defences().afterCount());
     }
 
     @Test
@@ -57,6 +88,7 @@ class DiscoveredAttackEventsTest {
         var report = play("8/8/8/R2Pp2k/8/8/8/4K3 w - e6 0 1", "d5e6").report();
         var attack = report.discoveredAttacks().added().getFirst();
         assertTrue(attack.discoveredCheck());
+        assertNull(attack.defensiveBatteries());
         assertEquals("a5", attack.attacker().id());
         assertEquals("h5", attack.target().id());
         assertEquals("d5", attack.mover().id());
@@ -94,9 +126,23 @@ class DiscoveredAttackEventsTest {
         assertEquals(AVAILABLE, attackOnly.status());
         assertEquals(1, attackOnly.added().size());
         assertNull(attackOnly.added().getFirst().defences());
+        assertNull(attackOnly.added().getFirst().defensiveBatteries());
         assertEquals(MISSING_DATA, historical(line, DEFENCE).status());
         assertEquals(MISSING_DATA, calculator.calculate("d4d5", line.root(), null).discoveredAttacks().status());
         assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", line.root(), line.delta()).discoveredAttacks().status());
+    }
+
+    @Test
+    void v2KeepsKnownDirectDefendersAndUnknownBatterySupport() {
+        var line = play("7k/1p6/p7/8/2B5/N7/8/Q6K w - - 0 1", "a3c2");
+        var root = line.root();
+        var delta = line.delta();
+        var v2 = new AttackSnapshot(2, root.calculatedKinds(), root.pieces(), root.relations(), root.squareControl(), null);
+        var v2Delta = new AttackDelta(2, delta.moveUci(), delta.pieceChanges(), delta.addedRelations(),
+                delta.removedRelations(), delta.addedControls(), delta.removedControls(), null, null);
+        var attack = calculator.calculate(delta.moveUci(), v2, v2Delta).discoveredAttacks().added().getFirst();
+        assertEquals(List.of("b7"), ids(attack.defences().after()));
+        assertNull(attack.defensiveBatteries());
     }
 
     private DiscoveredAttackEvents historical(Line line, RelationKind kind) {

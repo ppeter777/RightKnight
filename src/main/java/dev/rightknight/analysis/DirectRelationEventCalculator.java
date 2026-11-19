@@ -40,6 +40,7 @@ public final class DirectRelationEventCalculator {
         }
 
         var after = delta.piecesAfter(root);
+        var batteries = BatteryEventCalculator.positions(root, delta, after);
         var directTargets = new TreeSet<String>();
         for (var piece : delta.pieceChanges()) {
             if (piece.after() == null) directTargets.add(piece.pieceId());
@@ -77,7 +78,7 @@ public final class DirectRelationEventCalculator {
             if (directTargets.contains(id)) changes.add(target);
             var attackers = before.getOrDefault(new Incoming(id, ATTACK), List.of());
             var defenders = before.getOrDefault(new Incoming(id, DEFENCE), List.of());
-            discoveries.addAll(DiscoveredAttackEvents.opened(target, mover, attackers, defenders, root.pieces(), after));
+            discoveries.addAll(DiscoveredAttackEvents.opened(target, mover, attackers, defenders, root.pieces(), after, batteries));
             if (threatsAvailable) {
                 UndefendedPieceEvents.change(target, attackers, root.pieces(), after, moveUci)
                         .ifPresent(threats::add);
@@ -87,7 +88,7 @@ public final class DirectRelationEventCalculator {
         var discoveryStatus = root.calculatedKinds().contains(ATTACK) ? Status.AVAILABLE : Status.MISSING_DATA;
         var threatStatus = threatsAvailable ? Status.AVAILABLE : Status.MISSING_DATA;
         return new DirectRelationEvents(moveUci, Status.AVAILABLE, root.calculatedKinds(), changes,
-                BatteryEventCalculator.calculate(root, delta, after), SquareControlEventCalculator.calculate(root, delta, after),
+                BatteryEventCalculator.calculate(root, delta, after, batteries), SquareControlEventCalculator.calculate(root, delta, after),
                 new UndefendedPieceEvents(threatStatus, threats),
                 ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings),
                 new DiscoveredAttackEvents(discoveryStatus, discoveries));

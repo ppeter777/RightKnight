@@ -5,6 +5,8 @@ import com.github.bhlangonijr.chesslib.Side;
 import dev.rightknight.analysis.BatteryEvents.*;
 import dev.rightknight.analysis.DirectRelationEvents.Participant;
 import dev.rightknight.analysis.DirectRelationEvents.Status;
+import dev.rightknight.analysis.DiscoveredAttackEvents.BatteryRay;
+import dev.rightknight.analysis.DiscoveredAttackEvents.DefensiveBatteries;
 import dev.rightknight.model.attack.AttackDelta;
 import dev.rightknight.model.attack.AttackSnapshot;
 import dev.rightknight.model.attack.AttackSnapshot.PieceState;
@@ -17,22 +19,41 @@ final class BatteryEventCalculator {
     private static final Comparator<Ray> ORDER = Comparator.comparing(Ray::square)
             .thenComparing(Ray::side).thenComparing(Ray::direction);
 
-    static BatteryEvents calculate(AttackSnapshot root, AttackDelta delta, Map<String, PieceState> afterPieces) {
-        if (root.schemaVersion() < 3) return new BatteryEvents(Status.MISSING_DATA, List.of());
+    record Positions(Map<Ray, List<String>> before, Map<Ray, List<String>> after) {
+        DefensiveBatteries defences(PieceState target, Map<String, PieceState> oldPieces, Map<String, PieceState> newPieces) {
+            return new DefensiveBatteries(defensiveRays(before, target, oldPieces), defensiveRays(after, target, newPieces));
+        }
+    }
 
+    private static List<BatteryRay> defensiveRays(Map<Ray, List<String>> rays, PieceState target,
+                                                  Map<String, PieceState> pieces) {
+        return rays.entrySet().stream()
+                .filter(e -> e.getKey().square().equals(target.square()) && e.getKey().side() == target.color())
+                .sorted(Map.Entry.comparingByKey(ORDER))
+                .map(e -> new BatteryRay(e.getKey().direction(), participants(e.getValue(), pieces)))
+                .toList();
+    }
+
+    static Positions positions(AttackSnapshot root, AttackDelta delta, Map<String, PieceState> afterPieces) {
+        if (root.schemaVersion() < 3) return null;
         var afterControls = new HashSet<>(root.xrayControl());
         afterControls.removeAll(delta.removedXrayControls());
         afterControls.addAll(delta.addedXrayControls());
 
+        var squares = new HashSet<String>();
+        root.pieces().values().forEach(p -> squares.add(p.square()));
+        afterPieces.values().forEach(p -> squares.add(p.square()));
+        squares.add(delta.moveUci().substring(2, 4));
+        return new Positions(batteries(root.xrayControl(), root.pieces(), squares), batteries(afterControls, afterPieces, squares));
+    }
+
+    static BatteryEvents calculate(AttackSnapshot root, AttackDelta delta, Map<String, PieceState> afterPieces, Positions positions) {
+        if (positions == null) return new BatteryEvents(Status.MISSING_DATA, List.of());
         var beforeTargets = Participant.bySquare(root.pieces());
         var afterTargets = Participant.bySquare(afterPieces);
         String destination = delta.moveUci().substring(2, 4);
-        var squares = new HashSet<>(beforeTargets.keySet());
-        squares.addAll(afterTargets.keySet());
-        squares.add(destination);
-
-        var before = batteries(root.xrayControl(), root.pieces(), squares);
-        var after = batteries(afterControls, afterPieces, squares);
+        var before = positions.before();
+        var after = positions.after();
         var rays = new TreeSet<>(ORDER);
         rays.addAll(before.keySet());
         rays.addAll(after.keySet());

@@ -1,5 +1,6 @@
 package dev.rightknight.analysis;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.rightknight.analysis.DirectRelationEvents.Participant;
 import dev.rightknight.analysis.DirectRelationEvents.SourcesChange;
 import dev.rightknight.analysis.DirectRelationEvents.Status;
@@ -20,9 +21,37 @@ public record DiscoveredAttackEvents(Status status, List<Attack> added) {
 
     /** Mover and blockers are shown before the move. Blockers follow the ray from attacker to target. */
     public record Attack(Participant mover, Participant attacker, Participant target, List<Participant> blockers,
-                         boolean discoveredCheck, Sources attacks, Sources defences) {
+                         boolean discoveredCheck, Sources attacks, Sources defences, DefensiveBatteries defensiveBatteries) {
         public Attack {
             blockers = List.copyOf(blockers);
+        }
+    }
+
+    /** Rays run from the direct defender to the rear slider(s). */
+    public record BatteryRay(String direction, List<Participant> pieces) {
+        public BatteryRay {
+            pieces = List.copyOf(pieces);
+        }
+    }
+
+    public record DefensiveBatteries(List<BatteryRay> before, List<BatteryRay> after) {
+        public DefensiveBatteries {
+            before = List.copyOf(before);
+            after = List.copyOf(after);
+        }
+
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        public int beforeSupportCount() {
+            return supportCount(before);
+        }
+
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        public int afterSupportCount() {
+            return supportCount(after);
+        }
+
+        private static int supportCount(List<BatteryRay> rays) {
+            return rays.stream().mapToInt(ray -> ray.pieces().size() - 1).sum();
         }
     }
 
@@ -35,7 +64,8 @@ public record DiscoveredAttackEvents(Status status, List<Attack> added) {
     }
 
     static List<Attack> opened(TargetChange target, Participant mover, List<String> oldAttackers,
-                               List<String> oldDefenders, Map<String, PieceState> before, Map<String, PieceState> after) {
+                               List<String> oldDefenders, Map<String, PieceState> before, Map<String, PieceState> after,
+                               BatteryEventCalculator.Positions batteries) {
         if (target.attacks() == null || target.attacks().added().isEmpty() || !target.before().equals(target.after())) {
             return List.of();
         }
@@ -48,9 +78,12 @@ public record DiscoveredAttackEvents(Status status, List<Attack> added) {
         var attacks = sources(oldAttackers, target.attacks(), before, after);
         var defences = target.defences() == null ? null : sources(oldDefenders, target.defences(), before, after);
         var victim = new Participant(target.id(), target.after());
+        boolean check = victim.state().type() == KING;
+        var defensiveBatteries = batteries == null || check || defences == null
+                ? null : batteries.defences(victim.state(), before, after);
         return sliders.stream().map(attacker -> new Attack(mover, attacker, victim,
                 blockers(attacker.state().square(), victim.state().square(), before),
-                victim.state().type() == KING, attacks, defences)).toList();
+                check, attacks, defences, defensiveBatteries)).toList();
     }
 
     private static Sources sources(List<String> oldIds, SourcesChange change,
