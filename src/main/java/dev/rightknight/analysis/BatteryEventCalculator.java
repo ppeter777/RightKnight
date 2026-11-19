@@ -22,7 +22,11 @@ final class BatteryEventCalculator {
     record Positions(Map<Ray, List<String>> before, Map<Ray, List<String>> after) {
         BatterySupport support(String square, Side side, Map<String, PieceState> oldPieces,
                               Map<String, PieceState> newPieces) {
-            return new BatterySupport(raysFor(before, square, side, oldPieces), raysFor(after, square, side, newPieces));
+            return new BatterySupport(raysFor(before, square, side, oldPieces), afterRays(square, side, newPieces));
+        }
+
+        List<BatteryRay> afterRays(String square, Side side, Map<String, PieceState> pieces) {
+            return raysFor(after, square, side, pieces);
         }
     }
 

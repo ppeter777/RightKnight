@@ -91,7 +91,7 @@ public final class DirectRelationEventCalculator {
                 BatteryEventCalculator.calculate(root, delta, after, batteries), SquareControlEventCalculator.calculate(root, delta, after),
                 new UndefendedPieceEvents(threatStatus, threats),
                 ValuableAttackEvents.calculate(root, delta, after), new MovedIntoAttackEvents(threatStatus, landings),
-                new DiscoveredAttackEvents(discoveryStatus, discoveries));
+                new DiscoveredAttackEvents(discoveryStatus, discoveries), ForkEvents.calculate(root, delta, after, batteries));
     }
 
     private static Map<Incoming, List<String>> incoming(List<Relation> relations) {
