@@ -21,21 +21,22 @@ public record DiscoveredAttackEvents(Status status, List<Attack> added) {
 
     /** Mover and blockers are shown before the move. Blockers follow the ray from attacker to target. */
     public record Attack(Participant mover, Participant attacker, Participant target, List<Participant> blockers,
-                         boolean discoveredCheck, Sources attacks, Sources defences, DefensiveBatteries defensiveBatteries) {
+                         boolean discoveredCheck, Sources attacks, Sources defences,
+                         BatterySupport defensiveBatteries, BatterySupport attackingBatteries) {
         public Attack {
             blockers = List.copyOf(blockers);
         }
     }
 
-    /** Rays run from the direct defender to the rear slider(s). */
+    /** Rays run from the direct attacker or defender to the rear slider(s). */
     public record BatteryRay(String direction, List<Participant> pieces) {
         public BatteryRay {
             pieces = List.copyOf(pieces);
         }
     }
 
-    public record DefensiveBatteries(List<BatteryRay> before, List<BatteryRay> after) {
-        public DefensiveBatteries {
+    public record BatterySupport(List<BatteryRay> before, List<BatteryRay> after) {
+        public BatterySupport {
             before = List.copyOf(before);
             after = List.copyOf(after);
         }
@@ -79,11 +80,14 @@ public record DiscoveredAttackEvents(Status status, List<Attack> added) {
         var defences = target.defences() == null ? null : sources(oldDefenders, target.defences(), before, after);
         var victim = new Participant(target.id(), target.after());
         boolean check = victim.state().type() == KING;
+        var square = victim.state().square();
+        var targetSide = victim.state().color();
+        var attackingBatteries = batteries == null ? null : batteries.support(square, targetSide.flip(), before, after);
         var defensiveBatteries = batteries == null || check || defences == null
-                ? null : batteries.defences(victim.state(), before, after);
+                ? null : batteries.support(square, targetSide, before, after);
         return sliders.stream().map(attacker -> new Attack(mover, attacker, victim,
                 blockers(attacker.state().square(), victim.state().square(), before),
-                check, attacks, defences, defensiveBatteries)).toList();
+                check, attacks, defences, defensiveBatteries, attackingBatteries)).toList();
     }
 
     private static Sources sources(List<String> oldIds, SourcesChange change,

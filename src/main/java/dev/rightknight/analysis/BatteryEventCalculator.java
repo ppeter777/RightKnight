@@ -6,7 +6,7 @@ import dev.rightknight.analysis.BatteryEvents.*;
 import dev.rightknight.analysis.DirectRelationEvents.Participant;
 import dev.rightknight.analysis.DirectRelationEvents.Status;
 import dev.rightknight.analysis.DiscoveredAttackEvents.BatteryRay;
-import dev.rightknight.analysis.DiscoveredAttackEvents.DefensiveBatteries;
+import dev.rightknight.analysis.DiscoveredAttackEvents.BatterySupport;
 import dev.rightknight.model.attack.AttackDelta;
 import dev.rightknight.model.attack.AttackSnapshot;
 import dev.rightknight.model.attack.AttackSnapshot.PieceState;
@@ -20,15 +20,16 @@ final class BatteryEventCalculator {
             .thenComparing(Ray::side).thenComparing(Ray::direction);
 
     record Positions(Map<Ray, List<String>> before, Map<Ray, List<String>> after) {
-        DefensiveBatteries defences(PieceState target, Map<String, PieceState> oldPieces, Map<String, PieceState> newPieces) {
-            return new DefensiveBatteries(defensiveRays(before, target, oldPieces), defensiveRays(after, target, newPieces));
+        BatterySupport support(String square, Side side, Map<String, PieceState> oldPieces,
+                              Map<String, PieceState> newPieces) {
+            return new BatterySupport(raysFor(before, square, side, oldPieces), raysFor(after, square, side, newPieces));
         }
     }
 
-    private static List<BatteryRay> defensiveRays(Map<Ray, List<String>> rays, PieceState target,
-                                                  Map<String, PieceState> pieces) {
+    private static List<BatteryRay> raysFor(Map<Ray, List<String>> rays, String square, Side side,
+                                           Map<String, PieceState> pieces) {
         return rays.entrySet().stream()
-                .filter(e -> e.getKey().square().equals(target.square()) && e.getKey().side() == target.color())
+                .filter(e -> e.getKey().square().equals(square) && e.getKey().side() == side)
                 .sorted(Map.Entry.comparingByKey(ORDER))
                 .map(e -> new BatteryRay(e.getKey().direction(), participants(e.getValue(), pieces)))
                 .toList();
