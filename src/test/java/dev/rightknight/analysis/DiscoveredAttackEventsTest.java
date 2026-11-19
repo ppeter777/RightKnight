@@ -33,6 +33,7 @@ class DiscoveredAttackEventsTest {
         assertEquals(List.of("a1", "c4"), ids(attack.attacks().after()));
         assertEquals(List.of("b7"), ids(attack.defences().before()));
         assertEquals(List.of("b7"), ids(attack.defences().after()));
+        assertTrue(attack.attackingBatteries().after().isEmpty());
         assertEquals(List.of(), attack.defensiveBatteries().after());
         assertEquals(0, attack.defensiveBatteries().afterSupportCount());
         assertTrue(line.report().valuableAttacks().added().isEmpty());
@@ -73,6 +74,28 @@ class DiscoveredAttackEventsTest {
     }
 
     @Test
+    void includesBothTheNewAttackingBatteryAndAnExistingAttackingRay() throws Exception {
+        var report = play("k7/4r3/4r3/8/1RRNp3/8/2B5/1Q5K w - - 0 1", "d4f5").report();
+        var attack = report.discoveredAttacks().added().stream()
+                .filter(a -> a.target().id().equals("e4")).findFirst().orElseThrow();
+        var support = attack.attackingBatteries();
+        assertEquals(List.of("c2"), ids(attack.attacks().before()));
+        assertEquals(List.of("c2", "c4"), ids(attack.attacks().after()));
+        assertEquals(1, support.beforeSupportCount());
+        assertEquals(2, support.afterSupportCount());
+        assertEquals(List.of("SW", "W"), support.after().stream().map(DiscoveredAttackEvents.BatteryRay::direction).toList());
+        assertEquals(List.of("c2", "b1"), ids(support.after().getFirst().pieces()));
+        assertEquals(List.of(support.after().getFirst()), support.before());
+        assertEquals(List.of("c4", "b4"), ids(support.after().getLast().pieces()));
+        assertEquals(List.of("e6", "e7"), ids(attack.defensiveBatteries().after().getFirst().pieces()));
+
+        var mapper = new ObjectMapper();
+        var json = mapper.valueToTree(attack);
+        assertEquals(2, json.at("/attackingBatteries/afterSupportCount").intValue());
+        assertEquals(attack, mapper.treeToValue(json, DiscoveredAttackEvents.Attack.class));
+    }
+
+    @Test
     void reportsEachOpenedRayAndCoexistsWithValuableAttacks() {
         // The pawn leaves both the a4-f4 rank and the b2-f6 diagonal.
         var line = play("7k/8/5r2/8/R2P1r2/8/1B6/7K w - - 0 1", "d4d5");
@@ -85,11 +108,13 @@ class DiscoveredAttackEventsTest {
 
     @Test
     void anEnPassantCaptureCanRemoveTwoBlockersAndDiscoverCheck() {
-        var report = play("8/8/8/R2Pp2k/8/8/8/4K3 w - e6 0 1", "d5e6").report();
+        var report = play("8/8/8/RR1Pp2k/8/8/8/4K3 w - e6 0 1", "d5e6").report();
         var attack = report.discoveredAttacks().added().getFirst();
         assertTrue(attack.discoveredCheck());
         assertNull(attack.defensiveBatteries());
-        assertEquals("a5", attack.attacker().id());
+        assertEquals("b5", attack.attacker().id());
+        assertTrue(attack.attackingBatteries().before().isEmpty());
+        assertEquals(List.of("b5", "a5"), ids(attack.attackingBatteries().after().getFirst().pieces()));
         assertEquals("h5", attack.target().id());
         assertEquals("d5", attack.mover().id());
         assertEquals(List.of("d5", "e5"), ids(attack.blockers()));
@@ -97,9 +122,10 @@ class DiscoveredAttackEventsTest {
 
     @Test
     void moveCanUncoverAnEnemySlider() {
-        var attack = play("r6k/8/B7/8/P7/8/8/7K w - - 0 1", "a6b5")
+        var attack = play("r6k/r7/B7/8/P7/8/8/7K w - - 0 1", "a6b5")
                 .report().discoveredAttacks().added().getFirst();
-        assertEquals("a8", attack.attacker().id());
+        assertEquals("a7", attack.attacker().id());
+        assertEquals(List.of("a7", "a8"), ids(attack.attackingBatteries().after().getFirst().pieces()));
         assertEquals("a4", attack.target().id());
         assertEquals("a6", attack.mover().id());
         assertTrue(attack.defences().before().isEmpty());
@@ -127,6 +153,7 @@ class DiscoveredAttackEventsTest {
         assertEquals(1, attackOnly.added().size());
         assertNull(attackOnly.added().getFirst().defences());
         assertNull(attackOnly.added().getFirst().defensiveBatteries());
+        assertNull(attackOnly.added().getFirst().attackingBatteries());
         assertEquals(MISSING_DATA, historical(line, DEFENCE).status());
         assertEquals(MISSING_DATA, calculator.calculate("d4d5", line.root(), null).discoveredAttacks().status());
         assertEquals(INCOMPATIBLE_DATA, calculator.calculate("h1g1", line.root(), line.delta()).discoveredAttacks().status());
@@ -143,6 +170,7 @@ class DiscoveredAttackEventsTest {
         var attack = calculator.calculate(delta.moveUci(), v2, v2Delta).discoveredAttacks().added().getFirst();
         assertEquals(List.of("b7"), ids(attack.defences().after()));
         assertNull(attack.defensiveBatteries());
+        assertNull(attack.attackingBatteries());
     }
 
     private DiscoveredAttackEvents historical(Line line, RelationKind kind) {
