@@ -74,7 +74,7 @@ public record ValuableAttackEvents(Status status, Participant mover, List<Attack
         return target != PieceType.KING && value(target) > value(attacker);
     }
 
-    private static int value(PieceType piece) {
+    static int value(PieceType piece) {
         return switch (piece) {
             case PAWN -> 1;
             case KNIGHT, BISHOP -> 3;
