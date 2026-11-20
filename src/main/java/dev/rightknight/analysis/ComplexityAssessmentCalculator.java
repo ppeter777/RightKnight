@@ -51,7 +51,8 @@ public class ComplexityAssessmentCalculator {
             legal = new HashMap<>();
             for (Move move : board.legalMoves()) legal.put(move.toString(), move);
             if (analysis.getLegalMovesCount() != null && analysis.getLegalMovesCount() != legal.size()) {
-                throw new IllegalArgumentException("Legal move count does not match root FEN");
+                throw new IllegalArgumentException("Legal move count does not match root FEN: stored="
+                        + analysis.getLegalMovesCount() + ", legal=" + legal.size());
             }
         }
         Set<Integer> ranks = new HashSet<>();

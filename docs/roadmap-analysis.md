@@ -25,3 +25,5 @@
 - [ ] Position complexity
 - [ ] Practical pressure
 - [ ] Time management
+
+Для ручной проверки исходных позиций доступна [диагностическая выгрузка партии](decision-profile.md).

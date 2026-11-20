@@ -19,6 +19,7 @@ import static dev.rightknight.model.attack.AttackSnapshot.RelationKind.ATTACK;
 import static dev.rightknight.model.attack.AttackSnapshot.RelationKind.DEFENCE;
 
 public final class DirectRelationEventCalculator {
+    public static final String MODEL_VERSION = "direct-relation-events-v1";
     private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
 
     private record Incoming(String targetId, RelationKind kind) {}
